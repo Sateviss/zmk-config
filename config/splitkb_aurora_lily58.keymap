@@ -17,13 +17,13 @@
         rot_kp: behavior_sensor_rotate_kp {
             compatible = "zmk,behavior-sensor-rotate-var";
             label = "ENC_KP";
-            #sensor-binding-cells = <2>;
+            sensor-binding-cells = <2>;
             bindings = <&kp>, <&kp>;
         };
         rot_rgb: rgb_encoder {
             compatible = "zmk,behavior-sensor-rotate-var";
             label = "RGB_ENCODER";
-            #sensor-binding-cells = <2>;
+            sensor-binding-cells = <2>;
             bindings = <&rgb_ug>, <&rgb_ug>;
         };
         
