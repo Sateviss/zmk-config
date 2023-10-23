@@ -8,63 +8,83 @@
 #include <dt-bindings/zmk/keys.h>
 #include <dt-bindings/zmk/bt.h>
 #include <dt-bindings/zmk/ext_power.h>
+#include <dt-bindings/zmk/outputs.h>
+#include <dt-bindings/zmk/rgb.h>
+
+
 
 / {
+    behaviors {
+        rot_kp: behavior_sensor_rotate_kp {
+            compatible = "zmk,behavior-sensor-rotate-var";
+            label = "ENC_KP";
+            #sensor-binding-cells = <2>;
+            bindings = <&kp>, <&kp>;
+        };
+        rot_rgb: behavior_sensor_rotate_rgb {
+            compatible = "zmk,behavior-sensor-rotate-var";
+            label = "ENC_RGB";
+            #sensor-binding-cells = <2>;
+            bindings = <&rgb_ug>, <&rgb_ug>;
+        };
+        
+    };
+
     keymap {
         compatible = "zmk,keymap";
 
         default_layer {
 // ------------------------------------------------------------------------------------------------------------
-// |  ESC  |  1  |  2  |  3   |  4   |  5   |                   |  6   |  7    |  8    |  9   |   0   |   `   |
-// |  TAB  |  Q  |  W  |  E   |  R   |  T   |                   |  Y   |  U    |  I    |  O   |   P   |   -   |
-// |  CTRL |  A  |  S  |  D   |  F   |  G   |                   |  H   |  J    |  K    |  L   |   ;   |   '   |
-// | SHIFT |  Z  |  X  |  C   |  V   |  B   |   "["  |  |  "]"  |  N   |  M    |  ,    |  .   |   /   | SHIFT |
-//                     | ALT  | GUI  | LOWER|  SPACE |  | ENTER | RAISE| BSPC  | GUI   |
+// |  ESC  |  1  |  2  |  3   |  4   |  5   |                   |  6   |  7    |  8    |  9   |   0   |   '   |
+// |  TAB  |  Q  |  W  |  E   |  R   |  T   |                   |  Y   |  U    |  I    |  O   |   P   |   \   |
+// | SHIFT |  A  |  S  |  D   |  F   |  G   |  VOL      L/R ARR |  H   |  J    |  K    |  L   |   ;   |   [   |
+// |  CTRL |  Z  |  X  |  C   |  V   |  B   |  PLAY  |  | KBPWR |  N   |  M    |  ,    |  .   |   /   |   ]   |
+//                     | MO1  | WIN  | ALT  |  SPACE |  | ENTER | MO2  | BSPC  |  WIN  |
             bindings = <
-&kp ESC   &kp N1 &kp N2 &kp N3   &kp N4   &kp N5                     &kp N6 &kp N7   &kp N8    &kp N9  &kp N0   &kp GRAVE
-&kp TAB   &kp Q  &kp W  &kp E    &kp R    &kp T                      &kp Y  &kp U    &kp I     &kp O   &kp P    &kp MINUS
-&kp LSHFT &kp A  &kp S  &kp D    &kp F    &kp G                      &kp H  &kp J    &kp K     &kp L   &kp SEMI &kp SQT
-&kp LCTRL &kp Z  &kp X  &kp C    &kp V    &kp B  &kp LBKT   &kp RBKT &kp N  &kp M    &kp COMMA &kp DOT &kp FSLH &kp RSHFT
-                        &kp LALT &kp LGUI &mo 1  &kp SPACE  &kp RET  &mo 2  &kp BSPC &kp RGUI
+&kp ESC   &kp N1 &kp N2 &kp N3 &kp N4   &kp N5                                 &kp N6 &kp N7   &kp N8    &kp N9  &kp N0   &kp APOS
+&kp TAB   &kp Q  &kp W  &kp E  &kp R    &kp T                                  &kp Y  &kp U    &kp I     &kp O   &kp P    &kp BSLH
+&kp LSHFT &kp A  &kp S  &kp D  &kp F    &kp G                                  &kp H  &kp J    &kp K     &kp L   &kp SEMI &kp LBKT
+&kp LCTRL &kp Z  &kp X  &kp C  &kp V    &kp B     &kp K_PP   &ext_power EP_TOG &kp N  &kp M    &kp COMMA &kp DOT &kp FSLH &kp RBKT
+                        &mo 1  &kp LGUI &mo LALT  &kp SPACE  &kp RET           &mo 2  &kp BSPC &kp RGUI
             >;
 
-            sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &inc_dec_kp PG_UP PG_DN>;
+            sensor-bindings = <&rot_kp C_VOL_UP C_VOL_DN &rot_kp LEFT RIGHT>;
         };
 
-        lower_layer {
+        control_layer {
 // ------------------------------------------------------------------------------------------------------------
-// | BTCLR | BT1 | BT2 |  BT3 |  BT4 |  BT5 |                   |      |       |       |      |       |       |
-// |  F1   |  F2 |  F3 |  F4  |  F5  |  F6  |                   |  F7  |  F8   |  F9   |  F10 |  F11  |  F12  |
-// |   `   |  !  |  @  |  #   |  $   |  %   |                   |  ^   |  &    |  *    |  (   |   )   |   ~   |
-// |       |     |     |      |      |      |        |  |       |      |  _    |  +    |  {   |   }   |  "|"  |
-//                     |      |      |      |        |  |       |      |       |       |
+// | BTCLR |BTTGL| BT0 |  BT1 |  BT2 |  BT3 |                   |      |       |       |      |       |       |
+// |       |MODE+|SAT+ | BRT+ | HUE+ |      |                   |      |       |       |      |       |       |
+// | SHIFT |MODE-|SAT- | BRT- | HUE- |      |                   |      |       |       |      |       |       |
+// | LCTRL |     |     |      |      |      | RGBTGL |  |       |      |       |       |      |       |       |
+//                     |  MO1 | WIN  | ALT  | SPACE  |  | ENTER | MO2  |       |  WIN  |
             bindings = <
-&bt BT_CLR &bt BT_SEL 0     &bt BT_SEL 1      &bt BT_SEL 2      &bt BT_SEL 3 &bt BT_SEL 4                 &trans    &trans    &trans          &trans    &trans    &trans
-&kp F1     &kp F2           &kp F3            &kp F4            &kp F5       &kp F6                       &kp F7    &kp F8    &kp F9          &kp F10   &kp F11   &kp F12
-&kp GRAVE  &kp EXCL         &kp AT            &kp HASH          &kp DOLLAR   &kp PRCNT                    &kp CARET &kp AMPS  &kp STAR         &kp LPAR  &kp RPAR  &kp TILDE
-&trans     &ext_power EP_ON &ext_power EP_OFF &ext_power EP_TOG &trans       &trans    &trans   &trans    &trans    &kp MINUS &kp PLUS        &kp LBRC  &kp RBRC  &kp PIPE
-                                              &trans            &trans       &trans    &trans   &trans    &trans    &trans    &trans
+&bt BT_CLR &out OUT_TOG &bt BT_SEL 0 &bt BT_SEL 1    &bt BT_SEL 2    &bt BT_SEL 3                            &none     &none     &none &none &none &none
+&none      &none        &none        &rgb_ug RGB_SAI &rgb_ug RGB_EFF &rgb_ug RGB_SPI                         &none     &none     &none &none &none &none
+&kp LSHFT  &none        &none        &rgb_ug RGB_SAD &rgb_ug RGB_EFR &rgb_ug RGB_SPD                         &none     &none     &none &none &none &none
+&kp LCTRL  &none        &none        &none           &none           &none            &rgb_ug RGB_TOG &none  &none     &none     &none &none &none &none
+                                     &mo1            &kp LGUI        &kp LALT         &kp SPACE       &mo 2  &kp BSPC  &kp RGUI
             >;
 
-            sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &inc_dec_kp PG_UP PG_DN>;
+            sensor-bindings = <&rot_rgb RGB_HUI RGB_HUD &rot_rgb RGB_BRI RGB_BRD>;
         };
 
-        raise_layer {
+        additional_layer {
 // ------------------------------------------------------------------------------------------------------------
-// |       |     |     |      |      |      |                   |      |       |       |      |       |       |
-// |   `   |  1  |  2  |  3   |  4   |  5   |                   |  6   |   7   |   8   |  9   |   0   |       |
-// |   F1  |  F2 |  F3 |  F4  |  F5  |  F6  |                   |      |   <-  |   v   |  ^   |  ->   |       |
-// |   F7  |  F8 |  F9 |  F10 |  F11 |  F12 |        |  |       |  +   |   -   |   =   |  [   |   ]   |   \   |
-//                     |      |      |      |        |  |       |      |       |       |
+// |  ESC  |  F1 | F2  | F3   | F4   |  F5  |                   | F6   |  F7   |  F8   |  -   |   +   |  ~    |
+// |  CAPS |     | UP  |      |      |      |                   | F9   |  F10  |  F11  | PGUP |  F12  |       |
+// | SHIFT |LEFT |DOWN |RIGHT |      |      | NEXT/PREV  CTRLAR |      |INSERT | HOME  | PGDN |  END  |       |
+// | LCTRL |     |     |      |      |      | MUTE   |  |       |      |       |       |      |       |       |
+//                     |  MO1 | WIN  | ALT  | SPACE  |  | ENTER | MO2  |  DEL  |  WIN  |
             bindings = <
-&trans    &trans &trans &trans  &trans  &trans                       &trans      &trans    &trans    &trans   &trans    &trans
-&kp GRAVE &kp N1 &kp N2 &kp N3  &kp N4  &kp N5                       &kp N6      &kp N7    &kp N8    &kp N9   &kp N0    &trans
-&kp F1    &kp F2 &kp F3 &kp F4  &kp F5  &kp F6                       &trans      &kp LEFT  &kp DOWN  &kp UP   &kp RIGHT &trans
-&kp F7    &kp F8 &kp F9 &kp F10 &kp F11 &kp F12   &trans   &trans    &kp KP_PLUS &kp MINUS &kp EQUAL &kp LBKT &kp RBKT  &kp BSLH
-                        &trans  &trans  &trans    &trans   &trans    &trans      &trans    &trans
+&kp ESC   &kp F1   &kp F2   &kp F3    &kp F4   &kp F5                         &kp F6 &kp F7   &kp F8    &kp MINUS  &kp PLUS &kp GRAVE
+&kp CAPS  &none    &kp UP   &none     &none    &none                          &kp F9 &kp F10  &kp F11   &kp PG_UP  &kp P    &none
+&kp LSHFT &kp LEFT &kp DOWN &kp RIGHT &none    &none                          &none  &kp INS  &kp HOME  &kp PG_DN  &kp END  &none
+&kp LCTRL &none    &none    &none     &none    &none     &kp K_MUTE &none     &none  &none    &none     &none      &none &none
+                            &mo 1     &kp LGUI &mo LALT  &kp SPACE  &kp RET   &mo 2  &kp DEL  &kp RGUI
             >;
 
-            sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &inc_dec_kp PG_UP PG_DN>;
+            sensor-bindings = <&rot_kp K_NEXT K_PREV &rot_kp LCTRL LEFT LCTRL RIGHT>;
         };
     };
 };
