@@ -23,7 +23,7 @@
         rot_rgb: rgb_encoder {
             compatible = "zmk,behavior-sensor-rotate-var";
             label = "RGB_ENCODER";
-            #sensor-binding-cells = <0>;
+            #sensor-binding-cells = <2>;
             bindings = <&rgb_ug>, <&rgb_ug>;
         };
         
