@@ -12,7 +12,6 @@
 #include <dt-bindings/zmk/rgb.h>
 
 
-
 / {
     behaviors {
         rot_kp: behavior_sensor_rotate_kp {
@@ -21,9 +20,9 @@
             #sensor-binding-cells = <2>;
             bindings = <&kp>, <&kp>;
         };
-        rot_rgb: behavior_sensor_rotate_rgb {
+        rot_rgb: rgb_encoder {
             compatible = "zmk,behavior-sensor-rotate-var";
-            label = "ENC_RGB";
+            label = "RGB_ENCODER";
             #sensor-binding-cells = <2>;
             bindings = <&rgb_ug>, <&rgb_ug>;
         };
