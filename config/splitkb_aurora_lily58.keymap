@@ -12,23 +12,23 @@
 #include <dt-bindings/zmk/rgb.h>
 
 
-/ {
-    behaviors {
-        // rot_kp: behavior_sensor_rotate_key_press {
-        //     compatible = "zmk,behavior-sensor-rotate-var";
-        //     label = "ENC_KP";
-        //     #sensor-binding-cells = <2>;
-        //     bindings = <&kp>, <&kp>;
-        // };
-        rot_rgb: rgb_encoder {
-            compatible = "zmk,behavior-sensor-rotate-var";
-            label = "RGB_ENCODER";
-            #sensor-binding-cells = <2>;
-            bindings = <&rgb_ug>, <&rgb_ug>;
-        };
+// / {
+//     behaviors {
+//         // rot_kp: behavior_sensor_rotate_key_press {
+//         //     compatible = "zmk,behavior-sensor-rotate-var";
+//         //     label = "ENC_KP";
+//         //     #sensor-binding-cells = <2>;
+//         //     bindings = <&kp>, <&kp>;
+//         // };
+//         rot_rgb: rgb_encoder {
+//             compatible = "zmk,behavior-sensor-rotate-var";
+//             label = "RGB_ENCODER";
+//             #sensor-binding-cells = <2>;
+//             bindings = <&rgb_ug>, <&rgb_ug>;
+//         };
         
-    };
-};
+//     };
+// };
 
 / {
     keymap {
@@ -60,14 +60,14 @@
 // | LCTRL |     |     |      |      |      | RGBTGL |  |       |      |       |       |      |       |       |
 //                     |  MO1 | WIN  | ALT  | SPACE  |  | ENTER | MO2  |       |  WIN  |
             bindings = <
-&bt BT_CLR &out OUT_TOG &bt BT_SEL 0 &bt BT_SEL 1    &bt BT_SEL 2    &bt BT_SEL 3                             &none     &none     &none    &none &none &none
-&none      &none        &none        &rgb_ug RGB_SAI &rgb_ug RGB_EFF &rgb_ug RGB_SPI                          &none     &none     &none    &none &none &none
-&kp LSHFT  &none        &none        &rgb_ug RGB_SAD &rgb_ug RGB_EFR &rgb_ug RGB_SPD                          &none     &none     &none    &none &none &none
-&kp LCTRL  &none        &none        &none           &none           &none            &rgb_ug RGB_TOG &none   &none     &none     &none    &none &none &none
-                                     &mo 1           &kp LGUI        &kp LALT         &kp SPACE       &kp RET &mo 2     &kp BSPC  &kp RGUI
+&bt BT_CLR &out OUT_TOG    &bt BT_SEL 0    &bt BT_SEL 1    &bt BT_SEL 2    &bt BT_SEL 3                             &none     &none     &none    &none &none &none
+&none      &rgb_ug RGB_HUI &rgb_ug RGB_BRI &rgb_ug RGB_SAI &rgb_ug RGB_EFF &rgb_ug RGB_SPI                          &none     &none     &none    &none &none &none
+&kp LSHFT  &rgb_ug RGB_HUD &rgb_ug RGB_BRD &rgb_ug RGB_SAD &rgb_ug RGB_EFR &rgb_ug RGB_SPD                          &none     &none     &none    &none &none &none
+&kp LCTRL  &none           &none           &none           &none           &none            &rgb_ug RGB_TOG &none   &none     &none     &none    &none &none &none
+                                           &mo 1           &kp LGUI        &kp LALT         &kp SPACE       &kp RET &mo 2     &kp BSPC  &kp RGUI
             >;
 
-            sensor-bindings = <&rot_rgb RGB_HUI RGB_HUD &rot_rgb RGB_BRI RGB_BRD>;
+            sensor-bindings = <&none &none>;
         };
 
         additional_layer {
