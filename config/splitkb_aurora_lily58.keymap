@@ -14,16 +14,16 @@
 
 / {
     behaviors {
-        rot_kp: behavior_sensor_rotate_kp {
-            compatible = "zmk,behavior-sensor-rotate-var";
-            label = "ENC_KP";
-            sensor-binding-cells = <2>;
-            bindings = <&kp>, <&kp>;
-        };
+        // rot_kp: behavior_sensor_rotate_key_press {
+        //     compatible = "zmk,behavior-sensor-rotate-var";
+        //     label = "ENC_KP";
+        //     #sensor-binding-cells = <2>;
+        //     bindings = <&kp>, <&kp>;
+        // };
         rot_rgb: rgb_encoder {
             compatible = "zmk,behavior-sensor-rotate-var";
             label = "RGB_ENCODER";
-            sensor-binding-cells = <2>;
+            #sensor-binding-cells = <0>;
             bindings = <&rgb_ug>, <&rgb_ug>;
         };
         
@@ -49,7 +49,7 @@
                         &mo 1  &kp LGUI &mo LALT  &kp SPACE  &kp RET           &mo 2  &kp BSPC &kp RGUI
             >;
 
-            sensor-bindings = <&rot_kp C_VOL_UP C_VOL_DN &rot_kp LEFT RIGHT>;
+            sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &inc_dec_kp LEFT RIGHT>;
         };
 
         control_layer {
@@ -85,7 +85,7 @@
                             &mo 1     &kp LGUI &mo LALT  &kp SPACE  &kp RET   &mo 2  &kp DEL  &kp RGUI
             >;
 
-            sensor-bindings = <&rot_kp K_NEXT K_PREV &rot_kp LCTRL LEFT LCTRL RIGHT>;
+            sensor-bindings = <&inc_dec_kp K_NEXT K_PREV &inc_dec_kp LCTRL LEFT LCTRL RIGHT>;
         };
     };
 };
