@@ -30,8 +30,7 @@
                         &mo 1  &kp LGUI &mo LALT  &kp SPACE  &kp RET           &mo 2  &kp BSPC &kp RGUI
             >;
 
-            sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN 
-                               &inc_dec_kp LEFT RIGHT>;
+            // sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &inc_dec_kp LEFT RIGHT>;
         };
 
         control_layer {
@@ -49,8 +48,7 @@
                                            &mo 1           &kp LGUI        &kp LALT         &kp SPACE       &kp RET &mo 2     &kp BSPC  &kp RGUI
             >;
 
-            sensor-bindings = <&none 
-                               &none>;
+            // sensor-bindings = <&none &none>;
         };
 
         additional_layer {
@@ -68,7 +66,7 @@
                             &mo 1     &kp LGUI &mo LALT  &kp SPACE  &kp RET   &mo 2  &kp DEL  &kp RGUI
             >;
 
-            sensor-bindings = <&inc_dec_kp K_NEXT K_PREV &inc_dec_kp RC(LEFT) RC(RIGHT)>;
+            // sensor-bindings = <&inc_dec_kp K_NEXT K_PREV &inc_dec_kp RC(LEFT) RC(RIGHT)>;
         };
     };
 };
