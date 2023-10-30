@@ -43,11 +43,11 @@
 // |  CTRL |  Z  |  X  |  C   |  V   |  B   |  PLAY  |  | KBPWR |  N   |  M    |  ,    |  .   |   /   |   ]   |
 //                     | MO1  | WIN  | ALT  |  SPACE |  | ENTER | MO2  | BSPC  |  WIN  |
             bindings = <
-&kp ESC   &kp N1 &kp N2 &kp N3 &kp N4   &kp N5                                 &kp N6 &kp N7   &kp N8    &kp N9  &kp N0   &kp APOS
-&kp TAB   &kp Q  &kp W  &kp E  &kp R    &kp T                                  &kp Y  &kp U    &kp I     &kp O   &kp P    &kp BSLH
-&kp LSHFT &kp A  &kp S  &kp D  &kp F    &kp G                                  &kp H  &kp J    &kp K     &kp L   &kp SEMI &kp LBKT
-&kp LCTRL &kp Z  &kp X  &kp C  &kp V    &kp B     &kp C_PP   &ext_power EP_TOG &kp N  &kp M    &kp COMMA &kp DOT &kp FSLH &kp RBKT
-                        &mo 1  &kp LGUI &kp LALT  &kp SPACE  &kp RET           &mo 2  &kp BSPC &kp RGUI
+&kp ESC   &kp N1 &kp N2 &kp N3 &kp N4   &kp N5                         &kp N6 &kp N7   &kp N8    &kp N9  &kp N0   &kp APOS
+&kp TAB   &kp Q  &kp W  &kp E  &kp R    &kp T                          &kp Y  &kp U    &kp I     &kp O   &kp P    &kp BSLH
+&kp LSHFT &kp A  &kp S  &kp D  &kp F    &kp G                          &kp H  &kp J    &kp K     &kp L   &kp SEMI &kp LBKT
+&kp LCTRL &kp Z  &kp X  &kp C  &kp V    &kp B     &kp C_PP   &kp GRAVE &kp N  &kp M    &kp COMMA &kp DOT &kp FSLH &kp RBKT
+                        &mo 1  &kp LGUI &kp LALT  &kp SPACE  &kp RET   &mo 2  &kp BSPC &ext_power EP_TOG
             >;
 
             sensor-bindings = <&inc_dec_cp C_VOL_DN C_VOL_UP &inc_dec_cp LEFT RIGHT>;
@@ -56,16 +56,16 @@
         control_layer {
 // ------------------------------------------------------------------------------------------------------------
 // | BTCLR |BTTGL| BT0 |  BT1 |  BT2 |  BT3 |                   |      |       |       |      |       |       |
-// |       | HUE+| BRT+| SAT+ | EFF+ | SPD+ |                   |      |       |       |      |       |       |
+// | RGBTGL| HUE+| BRT+| SAT+ | EFF+ | SPD+ |                   |      |       |       |      |       |       |
 // | SHIFT | HUE-| BRT-| SAT- | EFF- | SPD- |                   |      |       |       |      |       |       |
-// | LCTRL |     |     |      |      |      | RGBTGL |  |       |      |       |       |      |       |       |
+// | LCTRL |     |     |      |      |      |        |  |       |      |       |       |      |       |       |
 //                     |  MO1 | WIN  | ALT  | SPACE  |  | ENTER | MO2  |       |  WIN  |
             bindings = <
-&bt BT_CLR      &out OUT_TOG    &bt BT_SEL 0    &bt BT_SEL 1    &bt BT_SEL 2    &bt BT_SEL 3                             &none     &none     &none    &none &none &none
-&rgb_ug RGB_TOG &rgb_ug RGB_HUI &rgb_ug RGB_BRI &rgb_ug RGB_SAI &rgb_ug RGB_EFF &rgb_ug RGB_SPI                          &none     &none     &none    &none &none &none
-&kp LSHFT       &rgb_ug RGB_HUD &rgb_ug RGB_BRD &rgb_ug RGB_SAD &rgb_ug RGB_EFR &rgb_ug RGB_SPD                          &none     &none     &none    &none &none &none
-&kp LCTRL       &none           &none           &none           &none           &none            &none     &none     &none     &none    &none &none &none
-                                                &mo 1           &kp LGUI        &kp LALT         &kp SPACE &kp RET &mo 2     &kp BSPC  &kp RGUI
+&bt BT_CLR      &out OUT_TOG    &bt BT_SEL 0    &bt BT_SEL 1    &bt BT_SEL 2    &bt BT_SEL 3                       &none     &none    &none   &none &none &none
+&rgb_ug RGB_TOG &rgb_ug RGB_HUI &rgb_ug RGB_BRI &rgb_ug RGB_SAI &rgb_ug RGB_EFF &rgb_ug RGB_SPI                    &none     &none    &none   &none &none &none
+&kp LSHFT       &rgb_ug RGB_HUD &rgb_ug RGB_BRD &rgb_ug RGB_SAD &rgb_ug RGB_EFR &rgb_ug RGB_SPD                    &none     &none    &none   &none &none &none
+&kp LCTRL       &none           &none           &none           &none           &none            &none     &none   &none     &none    &none   &none &none
+                                                &mo 1           &kp LGUI        &kp LALT         &kp SPACE &kp RET &mo 2     &none    &none
             >;
 
             sensor-bindings = <&inc_dec_cp C_VOL_DN C_VOL_UP &inc_dec_cp LEFT RIGHT>;
@@ -73,20 +73,20 @@
 
         additional_layer {
 // ------------------------------------------------------------------------------------------------------------
-// |  ESC  |  F1 | F2  | F3   | F4   |  F5  |                   | F6   |  F7   |  F8   |  -   |   +   |  ~    |
+// |  ESC  |  F1 | F2  | F3   | F4   |  F5  |                   | F6   |  F7   |  F8   |  -   |   +   |       |
 // |  CAPS |     | UP  |      |      |      |                   | F9   |  F10  |  F11  | PGUP |  F12  |       |
 // | SHIFT |LEFT |DOWN |RIGHT |      |      | NEXT/PREV  CTRLAR |      |INSERT | HOME  | PGDN |  END  |       |
 // | LCTRL |     |     |      |      |      | MUTE   |  |       |      |       |       |      |       |       |
-//                     |  MO1 | WIN  | ALT  | SPACE  |  | ENTER | MO2  |  DEL  |  WIN  |
+//                     |  MO1 | WIN  | ALT  | SPACE  |  | ENTER | MO2  |  DEL  | PAUSE |
             bindings = <
-&kp ESC   &kp F1   &kp F2   &kp F3    &kp F4   &kp F5                         &kp F6 &kp F7   &kp F8    &kp MINUS  &kp EQUAL &kp GRAVE
-&kp CAPS  &none    &kp UP   &none     &none    &none                          &kp F9 &kp F10  &kp F11   &kp PG_UP  &kp P     &none
-&kp LSHFT &kp LEFT &kp DOWN &kp RIGHT &none    &none                          &none  &kp INS  &kp HOME  &kp PG_DN  &kp END   &none
-&kp LCTRL &none    &none    &none     &none    &none     &kp K_MUTE &none     &none  &none    &none     &none      &none     &none
-                            &mo 1     &kp LGUI &kp LALT  &kp SPACE  &kp RET   &mo 2  &kp DEL  &kp RGUI
+&kp ESC   &kp F1   &kp F2   &kp F3    &kp F4   &kp F5                              &kp F6 &kp F7   &kp F8          &kp MINUS  &kp EQUAL &none
+&kp CAPS  &none    &kp UP   &none     &none    &none                               &kp F9 &kp F10  &kp F11         &kp PG_UP  &kp P     &none
+&kp LSHFT &kp LEFT &kp DOWN &kp RIGHT &none    &none                               &none  &kp INS  &kp HOME        &kp PG_DN  &kp END   &none
+&kp LCTRL &none    &none    &none     &none    &none     &none      &kp K_MUTE     &none  &none    &none           &none      &none     &none
+                            &mo 1     &kp LGUI &kp LALT  &kp SPACE  &kp RET        &mo 2  &kp DEL  &kp PAUSE_BREAK
             >;
 
-            sensor-bindings = <&inc_dec_kp K_PREV K_NEXT &inc_dec_kp RC(LEFT) RC(RIGHT)>;
+            sensor-bindings = <&inc_dec_kp RC(LEFT) RC(RIGHT) &inc_dec_kp C_PREV C_NEXT>;
         };
     };
 };
