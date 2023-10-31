@@ -41,13 +41,13 @@
 // |  TAB  |  Q  |  W  |  E   |  R   |  T   |                   |  Y   |  U    |  I    |  O   |   P   |   \   |
 // | SHIFT |  A  |  S  |  D   |  F   |  G   |  VOL      L/R ARR |  H   |  J    |  K    |  L   |   ;   |   [   |
 // |  CTRL |  Z  |  X  |  C   |  V   |  B   |  PLAY  |  | KBPWR |  N   |  M    |  ,    |  .   |   /   |   ]   |
-//                     | MO1  | WIN  | ALT  |  SPACE |  | ENTER | MO2  | BSPC  |  WIN  |
+//                     | MO1  | WIN  | ALT  |  SPACE |  | ENTER | MO2  | BSPC  |  ~    |
             bindings = <
-&kp ESC   &kp N1 &kp N2 &kp N3 &kp N4   &kp N5                         &kp N6 &kp N7   &kp N8    &kp N9  &kp N0   &kp APOS
-&kp TAB   &kp Q  &kp W  &kp E  &kp R    &kp T                          &kp Y  &kp U    &kp I     &kp O   &kp P    &kp BSLH
-&kp LSHFT &kp A  &kp S  &kp D  &kp F    &kp G                          &kp H  &kp J    &kp K     &kp L   &kp SEMI &kp LBKT
-&kp LCTRL &kp Z  &kp X  &kp C  &kp V    &kp B     &kp C_PP   &kp GRAVE &kp N  &kp M    &kp COMMA &kp DOT &kp FSLH &kp RBKT
-                        &mo 1  &kp LGUI &kp LALT  &kp SPACE  &kp RET   &mo 2  &kp BSPC &ext_power EP_TOG
+&kp ESC   &kp N1 &kp N2 &kp N3 &kp N4   &kp N5                                 &kp N6 &kp N7   &kp N8    &kp N9  &kp N0   &kp APOS
+&kp TAB   &kp Q  &kp W  &kp E  &kp R    &kp T                                  &kp Y  &kp U    &kp I     &kp O   &kp P    &kp BSLH
+&kp LSHFT &kp A  &kp S  &kp D  &kp F    &kp G                                  &kp H  &kp J    &kp K     &kp L   &kp SEMI &kp LBKT
+&kp LCTRL &kp Z  &kp X  &kp C  &kp V    &kp B     &kp C_PP   &ext_power EP_TOG &kp N  &kp M    &kp COMMA &kp DOT &kp FSLH &kp RBKT
+                        &mo 1  &kp LGUI &kp LALT  &kp SPACE  &kp RET           &mo 2  &kp BSPC &kp GRAVE
             >;
 
             sensor-bindings = <&inc_dec_cp C_VOL_DN C_VOL_UP &inc_dec_cp LEFT RIGHT>;
@@ -59,7 +59,7 @@
 // | RGBTGL| HUE+| BRT+| SAT+ | EFF+ | SPD+ |                   |      |       |       |      |       |       |
 // | SHIFT | HUE-| BRT-| SAT- | EFF- | SPD- |                   |      |       |       |      |       |       |
 // | LCTRL |     |     |      |      |      |        |  |       |      |       |       |      |       |       |
-//                     |  MO1 | WIN  | ALT  | SPACE  |  | ENTER | MO2  |       |  WIN  |
+//                     |  MO1 | WIN  | ALT  | SPACE  |  | ENTER | MO2  |       |       |
             bindings = <
 &bt BT_CLR      &out OUT_TOG    &bt BT_SEL 0    &bt BT_SEL 1    &bt BT_SEL 2    &bt BT_SEL 3                       &none     &none    &none   &none &none &none
 &rgb_ug RGB_TOG &rgb_ug RGB_HUI &rgb_ug RGB_BRI &rgb_ug RGB_SAI &rgb_ug RGB_EFF &rgb_ug RGB_SPI                    &none     &none    &none   &none &none &none
