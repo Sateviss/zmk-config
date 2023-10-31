@@ -31,6 +31,9 @@
 //     };
 // };
 
+&left_encoder { resolution = <4>; };
+&right_encoder { resolution = <2>; };
+
 / {
     keymap {
         compatible = "zmk,keymap";
