@@ -17,19 +17,19 @@
         resolution = 2;
     }
     
-    rot_kp: behavior_sensor_rotate_key_press {
-        compatible = "zmk,behavior-sensor-rotate-var";
-        label = "ENC_KP";
-        #sensor-binding-cells = <2>;
-        bindings = <&kp>, <&kp>;
-    };
+    // rot_kp: behavior_sensor_rotate_key_press {
+    //     compatible = "zmk,behavior-sensor-rotate-var";
+    //     label = "ENC_KP";
+    //     #sensor-binding-cells = <2>;
+    //     bindings = <&kp>, <&kp>;
+    // };
 
-    rot_rgb: rgb_encoder {
-        compatible = "zmk,behavior-sensor-rotate-var";
-        label = "RGB_ENCODER";
-        #sensor-binding-cells = <2>;
-        bindings = <&rgb_ug>, <&rgb_ug>;
-    };
+    // rot_rgb: rgb_encoder {
+    //     compatible = "zmk,behavior-sensor-rotate-var";
+    //     label = "RGB_ENCODER";
+    //     #sensor-binding-cells = <2>;
+    //     bindings = <&rgb_ug>, <&rgb_ug>;
+    // };
     
     keymap {
         compatible = "zmk,keymap";
