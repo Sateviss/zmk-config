@@ -14,8 +14,8 @@
 / {
     sensor {
         compatible = "alps,ec11";
-        resolution = 2;
-    }
+        resolution = <2>;
+    };
     
     // rot_kp: behavior_sensor_rotate_key_press {
     //     compatible = "zmk,behavior-sensor-rotate-var";
