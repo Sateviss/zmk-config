@@ -12,29 +12,35 @@
 #include <dt-bindings/zmk/rgb.h>
 
 / {
-    sensors {
+    left_encoder: left_encoder {
+        compatible = "alps,ec11";
+        label = "L_ENCODER";
+        steps = <80>;
+        status = "disabled";
+
+        a-gpios = <&pro_micro 5 GPIO_PULL_UP>;
+        b-gpios = <&pro_micro 4 GPIO_PULL_UP>;
+    };
+
+    right_encoder: right_encoder {
+        compatible = "alps,ec11";
+        label = "R_ENCODER";
+        steps = <80>;
+        status = "disabled";
+
+        a-gpios = <&pro_micro 18 GPIO_PULL_UP>;
+        b-gpios = <&pro_micro 19 GPIO_PULL_UP>;
+    };
+
+    sensors: sensors {
         compatible = "zmk,keymap-sensors";
         sensors = <&left_encoder &right_encoder>;
-        triggers-per-rotation = <72>;
+        triggers-per-rotation = <40>;
     };
 };
 
 
 / {    
-    // rot_kp: behavior_sensor_rotate_key_press {
-    //     compatible = "zmk,behavior-sensor-rotate-var";
-    //     label = "ENC_KP";
-    //     #sensor-binding-cells = <2>;
-    //     bindings = <&kp>, <&kp>;
-    // };
-
-    // rot_rgb: rgb_encoder {
-    //     compatible = "zmk,behavior-sensor-rotate-var";
-    //     label = "RGB_ENCODER";
-    //     #sensor-binding-cells = <2>;
-    //     bindings = <&rgb_ug>, <&rgb_ug>;
-    // };
-    
     keymap {
         compatible = "zmk,keymap";
 
