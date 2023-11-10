@@ -35,7 +35,14 @@
     sensors: sensors {
         compatible = "zmk,keymap-sensors";
         sensors = <&left_encoder &right_encoder>;
-        triggers-per-rotation = <40>;
+
+        left_sensor {
+            triggers-per-rotation = <30>;
+        };
+
+        right_sensor {
+            triggers-per-rotation = <36>;
+        };
     };
 };
 
@@ -95,7 +102,7 @@
                             &mo 1     &kp LGUI &kp LALT  &kp SPACE  &kp RET        &mo 2  &kp DEL  &kp PAUSE_BREAK
             >;
         
-            sensor-bindings = <&inc_dec_kp RC(LEFT) RC(RIGHT) &inc_dec_cp PG_DN PG_UP>;
+            sensor-bindings = <&inc_dec_kp DOWN UP &inc_dec_cp RC(LEFT) RC(RIGHT)>;
         };
     };
 };
