@@ -1,0 +1,431 @@
+<html>
+    <style>
+
+        table {
+            border-spacing: 0;
+        }
+
+        td {
+            font-variant-ligatures: none;
+            width: 10mm;
+            height: 10mm;
+            display: inline-block;
+            margin: 0mm;
+            font-family: 'Fira Code';
+            font-weight: bold;
+            font-size: 5pt;
+            border-color: hsl(0, 0%, 100%);
+            border-width: 0.1mm;
+            border-style: solid;
+        }
+
+        td:not(.blank) {
+            border-color: hsl(0, 0%, 97%);
+            /* border-radius: 2mm; */
+            position: relative;
+        }
+
+        td div.main {
+            font-size: 14pt;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            -ms-transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%);
+            color: black;
+            /* text-shadow: grey 0 0 2px; */
+        }
+
+        td.smaller div.main {
+            font-size: 10pt;
+        }
+
+        td div.cyrillic {
+            font-size: 8pt;
+            text-align: center;
+            position: absolute;
+            top: 17%;
+            right: -0mm;
+            -ms-transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%);
+            color: grey;
+            z-index: 10;
+        }
+
+        td div.L1 {
+            margin: 0.2mm;
+            text-align: start;
+            color: red;
+        }
+
+        td div.L2 {
+            margin: 0mm;
+            right: 0.5mm;
+            position: absolute;
+            top: 8.5mm;
+            color: grey;
+        }
+
+
+
+    </style>
+    <body>
+        <table>
+            <tr>
+                <td class="smaller">
+                    <div class="main">esc</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1"></div>
+                    <div class="L2">bl tog</div>
+                </td>
+                <td>
+                    <div class="main">1!</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1">f1</div>
+                    <div class="L2">bl reset</div>
+                </td>
+                <td>
+                    <div class="main">2@</div>
+                    <div class="cyrillic">"</div>
+                    <div class="L1">f2</div>
+                    <div class="L2">bl 1</div>
+                </td>
+                <td>
+                    <div class="main">3#</div>
+                    <div class="cyrillic">№</div>
+                    <div class="L1">f3</div>
+                    <div class="L2">bl 2</div>
+                </td>
+                <td>
+                    <div class="main">4$</div>
+                    <div class="cyrillic">;</div>
+                    <div class="L1">f4</div>
+                    <div class="L2">bl 3</div>
+                </td>
+                <td>
+                    <div class="main">5%</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1">f5</div>
+                    <div class="L2">bl 4</div>
+                </td>
+                <td class="blank"></td>
+                <td>
+                    <div class="main">6^</div>
+                    <div class="cyrillic">:</div>
+                    <div class="L1">f6</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">7&</div>
+                    <div class="cyrillic">?</div>
+                    <div class="L1">f7</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">8*</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1">f8</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">9(</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1">-_</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">0)</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1">= +</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">'"</div>
+                    <div class="cyrillic">э</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+            </tr>
+            <tr>
+                <td class="smaller">
+                    <div class="main">tab</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1">caps</div>
+                    <div class="L2">rgb tog</div>
+                </td>
+                <td>
+                    <div class="main">q</div>
+                    <div class="cyrillic">й</div>
+                    <div class="L1"></div>
+                    <div class="L2">rgb hue+</div>
+                </td>
+                <td>
+                    <div class="main">w</div>
+                    <div class="cyrillic">ц</div>
+                    <div class="L1">up</div>
+                    <div class="L2">rgb brt+</div>
+                </td>
+                <td>
+                    <div class="main">e</div>
+                    <div class="cyrillic">у</div>
+                    <div class="L1"></div>
+                    <div class="L2">rgb sat+</div>
+                </td>
+                <td>
+                    <div class="main">r</div>
+                    <div class="cyrillic">к</div>
+                    <div class="L1"></div>
+                    <div class="L2">rgb eff+</div>
+                </td>
+                <td>
+                    <div class="main">t</div>
+                    <div class="cyrillic">е</div>
+                    <div class="L1"></div>
+                    <div class="L2">rgb spd+</div>
+                </td>
+                <td class="blank"></td>
+                <td>
+                    <div class="main">y</div>
+                    <div class="cyrillic">н</div>
+                    <div class="L1">f9</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">u</div>
+                    <div class="cyrillic">г</div>
+                    <div class="L1">f10</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">i</div>
+                    <div class="cyrillic">ш</div>
+                    <div class="L1">f11</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">o</div>
+                    <div class="cyrillic">щ</div>
+                    <div class="L1">pgup</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">p</div>
+                    <div class="cyrillic">з</div>
+                    <div class="L1">f12</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">\|</div>
+                    <div class="cyrillic">\/</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+            </tr>
+            <tr>
+                <td class="smaller">
+                    <div class="main">shift</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">a</div>
+                    <div class="cyrillic">ф</div>
+                    <div class="L1">left</div>
+                    <div class="L2">rgb hue-</div>
+                </td>
+                <td>
+                    <div class="main">s</div>
+                    <div class="cyrillic">ы</div>
+                    <div class="L1">down</div>
+                    <div class="L2">rgb brt-</div>
+                </td>
+                <td>
+                    <div class="main">d</div>
+                    <div class="cyrillic">в</div>
+                    <div class="L1">right</div>
+                    <div class="L2">rgb sat-</div>
+                </td>
+                <td>
+                    <div class="main">f</div>
+                    <div class="cyrillic">а</div>
+                    <div class="L1"></div>
+                    <div class="L2">rgb eff-</div>
+                </td>
+                <td>
+                    <div class="main">g</div>
+                    <div class="cyrillic">п</div>
+                    <div class="L1"></div>
+                    <div class="L2">rgb spd-</div>
+                </td>
+                <td class="blank"></td>
+                <td>
+                    <div class="main">h</div>
+                    <div class="cyrillic">р</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">j</div>
+                    <div class="cyrillic">о</div>
+                    <div class="L1">ins</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">k</div>
+                    <div class="cyrillic">л</div>
+                    <div class="L1">home</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">l</div>
+                    <div class="cyrillic">д</div>
+                    <div class="L1">pgdn</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">;:</div>
+                    <div class="cyrillic">ж</div>
+                    <div class="L1">end</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">[{</div>
+                    <div class="cyrillic">х</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+            </tr>
+            <tr>
+                <td class="smaller">
+                    <div class="main">ctrl</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">z</div>
+                    <div class="cyrillic">я</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">x</div>
+                    <div class="cyrillic">ч</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">c</div>
+                    <div class="cyrillic">с</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">v</div>
+                    <div class="cyrillic">м</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">b</div>
+                    <div class="cyrillic">и</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td class="blank"></td>
+                <td>
+                    <div class="main">n</div>
+                    <div class="cyrillic">т</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">m</div>
+                    <div class="cyrillic">ь</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td class="smaller">
+                    <div class="main">,<</div>
+                    <div class="cyrillic">б</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td class="smaller">
+                    <div class="main">.></div>
+                    <div class="cyrillic">ю</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">/?</div>
+                    <div class="cyrillic">.,</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">]}</div>
+                    <div class="cyrillic">ъ</div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+            </tr>
+            <tr>
+                <td class="blank"></td>
+                <td class="blank"></td>
+                <td class="smaller">
+                    <div class="main">mo2</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td class="smaller">
+                    <div class="main">win</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td class="smaller">
+                    <div class="main">alt</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td class="smaller">
+                    <div class="main">space</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td class="blank"></td>
+                <td class="smaller">
+                    <div class="main">enter</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td class="smaller">
+                    <div class="main">mo1</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1"></div>
+                    <div class="L2"></div>
+                </td>
+                <td class="smaller">
+                    <div class="main">bksp</div>
+                    <div class="cyrillic"></div>
+                    <div class="L1">del</div>
+                    <div class="L2"></div>
+                </td>
+                <td>
+                    <div class="main">`~</div>
+                    <div class="cyrillic">ё</div>
+                    <div class="L1">pause</div>
+                    <div class="L2"></div>
+                </td>
+                <td class="blank"></td>
+                <td class="blank"></td>
+            </tr>
+        </table>
+    </body>
+</html>
