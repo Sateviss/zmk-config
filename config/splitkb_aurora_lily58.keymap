@@ -71,13 +71,13 @@
 
         control_layer {
 // ------------------------------------------------------------------------------------------------------------
-// | BTCLR |BTTGL| BT0 |  BT1 |  BT2 |  BT3 |                   |      |       |       |      |       |       |
+// | BTTGL |BTCLR| BT0 |  BT1 |  BT2 |  BT3 |                   |      |       |       |      |       |       |
 // | RGBTGL| HUE+| BRT+| SAT+ | EFF+ | SPD+ |                   |      |       |       |      |       |       |
 // | SHIFT | HUE-| BRT-| SAT- | EFF- | SPD- |                   |      |       |       |      |       |       |
 // | LCTRL |     |     |      |      |      |        |  |       |      |       |       |      |       |       |
 //                     |  MO1 | WIN  | ALT  | SPACE  |  | ENTER | MO2  |       |       |
             bindings = <
-&out OUT_TOG    &bt BT_CLR      &bt BT_SEL 0    &bt BT_SEL 1    &bt BT_SEL 2    &bt BT_SEL 3                       &none     &none    &none   &none &none &none
+&bt BT_CLR      &out OUT_TOG    &bt BT_SEL 0    &bt BT_SEL 1    &bt BT_SEL 2    &bt BT_SEL 3                       &none     &none    &none   &none &none &none
 &rgb_ug RGB_TOG &rgb_ug RGB_HUI &rgb_ug RGB_BRI &rgb_ug RGB_SAI &rgb_ug RGB_EFF &rgb_ug RGB_SPI                    &none     &none    &none   &none &none &none
 &kp LSHFT       &rgb_ug RGB_HUD &rgb_ug RGB_BRD &rgb_ug RGB_SAD &rgb_ug RGB_EFR &rgb_ug RGB_SPD                    &none     &none    &none   &none &none &none
 &kp LCTRL       &none           &none           &none           &none           &none            &none     &none   &none     &none    &none   &none &none
@@ -102,7 +102,7 @@
                             &mo 1     &kp LGUI &kp LALT  &kp SPACE  &kp RET        &mo 2  &kp DEL  &kp PAUSE_BREAK
             >;
         
-            sensor-bindings = <&inc_dec_kp DOWN UP &inc_dec_cp RC(LEFT) RC(RIGHT)>;
+            sensor-bindings = <&inc_dec_kp UP DOWN &inc_dec_cp RC(LEFT) RC(RIGHT)>;
         };
     };
 };
