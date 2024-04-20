@@ -95,11 +95,11 @@
 // | LCTRL |     |     |      |      |      |        |  | MUTE  |      |       |       |      |       |       |
 //                     |  MO1 | WIN  | ALT  | SPACE  |  | ENTER | MO2  |  DEL  | PAUSE |
             bindings = <
-&kp ESC   &kp F1   &kp F2   &kp F3    &kp F4   &kp F5                              &kp F6 &kp F7   &kp F8          &kp MINUS  &kp EQUAL &none
-&kp CAPS  &none    &kp UP   &none     &none    &none                               &kp F9 &kp F10  &kp F11         &kp PG_UP  &kp F12   &none
-&kp LSHFT &kp LEFT &kp DOWN &kp RIGHT &none    &none                               &none  &kp INS  &kp HOME        &kp PG_DN  &kp END   &none
-&kp LCTRL &none    &none    &none     &none    &none     &kp K_MUTE &none          &none  &none    &none           &none      &none     &none
-                            &mo 1     &kp LGUI &kp LALT  &kp SPACE  &kp RET        &mo 2  &kp DEL  &kp PAUSE_BREAK
+&kp ESC   &kp F1   &kp F2   &kp F3    &kp F4   &kp F5                              &kp F6     &kp F7   &kp F8          &kp MINUS  &kp EQUAL &none
+&kp CAPS  &none    &kp UP   &none     &none    &none                               &kp F9     &kp F10  &kp F11         &kp PG_UP  &kp F12   &none
+&kp LSHFT &kp LEFT &kp DOWN &kp RIGHT &none    &none                               &kp PSCRN  &kp INS  &kp HOME        &kp PG_DN  &kp END   &none
+&kp LCTRL &none    &none    &none     &none    &none     &kp K_MUTE &none          &none      &none    &none           &none      &none     &none
+                            &mo 1     &kp LGUI &kp LALT  &kp SPACE  &kp RET        &mo 2      &kp DEL  &kp PAUSE_BREAK
             >;
         
             sensor-bindings = <&inc_dec_kp UP DOWN &inc_dec_cp RC(LEFT) RC(RIGHT)>;
