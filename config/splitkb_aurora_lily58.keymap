@@ -11,7 +11,7 @@
 #include <dt-bindings/zmk/outputs.h>
 #include <dt-bindings/zmk/rgb.h>
 #include <dt-bindings/zmk/backlight.h>
-
+/*
 / {
     kscan: kscan {
         compatible = "zmk,kscan-gpio-matrix";
@@ -19,6 +19,7 @@
         wakeup-source;
     };
 };
+ */
 
 / {
     // left_encoder: left_encoder {
