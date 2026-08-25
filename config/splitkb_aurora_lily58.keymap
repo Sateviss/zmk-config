@@ -13,6 +13,14 @@
 #include <dt-bindings/zmk/backlight.h>
 
 / {
+    kscan: kscan {
+        compatible = "zmk,kscan-gpio-matrix";
+        diode-direction = "col2row";
+        wakeup-source;
+    };
+};
+
+/ {
     // left_encoder: left_encoder {
     //     compatible = "alps,ec11";
     //     label = "L_ENCODER";
