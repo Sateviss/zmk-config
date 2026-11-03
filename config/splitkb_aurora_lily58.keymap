@@ -29,6 +29,12 @@
     chain-length = <34>;
 };
 
+// Run the OLED bus at 400 kHz (fast mode, supported by the SSD1306) instead of the
+// 100 kHz default, so each redraw holds the CPU/bus for a quarter of the time.
+&pro_micro_i2c {
+    clock-frequency = <400000>;
+};
+
 / {
     sensors: sensors {
         compatible = "zmk,keymap-sensors";
