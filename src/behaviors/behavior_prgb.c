@@ -49,6 +49,7 @@ static const struct behavior_parameter_value_metadata no_arg_values[] = {
     CMD("Key Hue Down", PRGB_KEY_HUE_DN_CMD),
     CMD("Key Saturation Up", PRGB_KEY_SAT_UP_CMD),
     CMD("Key Saturation Down", PRGB_KEY_SAT_DN_CMD),
+    CMD("Next Background Level", PRGB_BG_NEXT_CMD),
 };
 
 static const struct behavior_parameter_value_metadata effect_cmd_values[] = {
@@ -136,6 +137,10 @@ static int prgb_convert_params(struct zmk_behavior_binding *binding,
     case PRGB_KEY_SAT_DN_CMD:
         to_color(binding, PRGB_ZONE_KEYS, 0, -1);
         break;
+    case PRGB_BG_NEXT_CMD:
+        binding->param2 = prgb_calc_bg_next();
+        binding->param1 = PRGB_BG_SET_CMD;
+        break;
     default:
         return 0;
     }
@@ -185,6 +190,8 @@ static int prgb_binding_pressed(struct zmk_behavior_binding *binding,
         return prgb_set_color(PRGB_ZONE_KEYS, prgb_calc_color(PRGB_ZONE_KEYS, 0, 1));
     case PRGB_KEY_SAT_DN_CMD:
         return prgb_set_color(PRGB_ZONE_KEYS, prgb_calc_color(PRGB_ZONE_KEYS, 0, -1));
+    case PRGB_BG_NEXT_CMD:
+        return prgb_set_bg(prgb_calc_bg_next());
     case PRGB_EFF_SET_CMD:
         return prgb_set_effect(binding->param2);
     case PRGB_BRT_SET_CMD:
@@ -195,6 +202,8 @@ static int prgb_binding_pressed(struct zmk_behavior_binding *binding,
         return set_color(PRGB_ZONE_UNDERGLOW, binding->param2);
     case PRGB_KEY_COLOR_CMD:
         return set_color(PRGB_ZONE_KEYS, binding->param2);
+    case PRGB_BG_SET_CMD:
+        return prgb_set_bg(binding->param2);
     }
 
     return -ENOTSUP;

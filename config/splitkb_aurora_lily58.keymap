@@ -79,16 +79,17 @@
             display-name = "Control";
 // ------------------------------------------------------------------------------------------------------------
 // RGB: UG = underglow zone (also the reactive accent colour), KEY = per-key zone.
+// BGLVL = reactive/ripple background (dim accent tint): 0 -> 5 -> 10 -> 15 -> 25% -> 0.
 // | BTCLR |OUTTG| BT0 |  BT1 |  BT2 |  BT3 |                   |      |       |       |      |       |STUDIO |
 // | RGBTGL|UGHU+| BRT+|KEYHU+| EFF+ | SPD+ |                   |      |       |       |      |       |       |
 // | SHIFT |UGHU-| BRT-|KEYHU-| EFF- | SPD- |                   |      |       |       |      |       |       |
-// | LCTRL |UGSA+|UGSA-|KEYSA+|KEYSA-|      | KBPWR  |  |       |      |       |       |      |       |       |
+// | LCTRL |UGSA+|UGSA-|KEYSA+|KEYSA-|BGLVL | KBPWR  |  |       |      |       |       |      |       |       |
 //                     |  MO1 | WIN  | ALT  | SPACE  |  | ENTER | MO2  |       |       |
             bindings = <
 &bt BT_CLR     &out OUT_TOG         &bt BT_SEL 0         &bt BT_SEL 1          &bt BT_SEL 2          &bt BT_SEL 3                         &none     &none    &none   &none &none &studio_unlock
 &prgb PRGB_TOG &prgb PRGB_UG_HUE_UP &prgb PRGB_BRI_UP    &prgb PRGB_KEY_HUE_UP &prgb PRGB_EFF_NEXT   &prgb PRGB_SPD_UP                    &none     &none    &none   &none &none &none
 &kp LSHFT      &prgb PRGB_UG_HUE_DN &prgb PRGB_BRI_DN    &prgb PRGB_KEY_HUE_DN &prgb PRGB_EFF_PREV   &prgb PRGB_SPD_DN                    &none     &none    &none   &none &none &none
-&kp LCTRL      &prgb PRGB_UG_SAT_UP &prgb PRGB_UG_SAT_DN &prgb PRGB_KEY_SAT_UP &prgb PRGB_KEY_SAT_DN &none              &ext_power EP_TOG &none &none     &none    &none   &none &none &none
+&kp LCTRL      &prgb PRGB_UG_SAT_UP &prgb PRGB_UG_SAT_DN &prgb PRGB_KEY_SAT_UP &prgb PRGB_KEY_SAT_DN &prgb PRGB_BG_NEXT &ext_power EP_TOG &none &none     &none    &none   &none &none &none
                                                          &mo 1                 &kp LGUI              &kp LALT           &kp SPACE &kp RET &mo 2     &none    &none
             >;
 

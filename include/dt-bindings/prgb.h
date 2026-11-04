@@ -9,7 +9,7 @@
 /* Effects */
 #define PRGB_EFF_STATIC 0   /* underglow colour + key colour */
 #define PRGB_EFF_BREATHE 1  /* underglow breathes, keys static */
-#define PRGB_EFF_REACTIVE 2 /* keys dim, a pressed key flashes the accent colour and fades */
+#define PRGB_EFF_REACTIVE 2 /* a pressed key lights in the accent colour and fades out */
 #define PRGB_EFF_RIPPLE 3   /* like reactive, plus a ring spreading out from the key */
 #define PRGB_EFF_RAINBOW 4  /* keys: rainbow across the board by x position */
 #define PRGB_EFF_COUNT 5
@@ -43,6 +43,14 @@
 #define PRGB_UG_COLOR_CMD 20  /* param2: PRGB_HS(hue 0-359, saturation 0-100) */
 #define PRGB_KEY_COLOR_CMD 21 /* param2: PRGB_HS(hue 0-359, saturation 0-100) */
 
+/*
+ * Reactive/ripple background: what the keys rest at between presses, as a dim tint of
+ * the accent (underglow) colour, in % of the brightness. 0 (default) = keys dark.
+ * Added after the commands above so their numbers stay the same.
+ */
+#define PRGB_BG_NEXT_CMD 22 /* relative: next level of 0, 5, 10, 15, 25 %, then back to 0 */
+#define PRGB_BG_SET_CMD 23  /* absolute, param2: background 0-100 */
+
 #define PRGB_HS(h, s) (((h) << 8) | (s))
 
 #define PRGB_TOG PRGB_TOG_CMD 0
@@ -62,7 +70,9 @@
 #define PRGB_KEY_HUE_DN PRGB_KEY_HUE_DN_CMD 0
 #define PRGB_KEY_SAT_UP PRGB_KEY_SAT_UP_CMD 0
 #define PRGB_KEY_SAT_DN PRGB_KEY_SAT_DN_CMD 0
+#define PRGB_BG_NEXT PRGB_BG_NEXT_CMD 0
 
 #define PRGB_EFF(e) PRGB_EFF_SET_CMD e
 #define PRGB_UG_COLOR(h, s) PRGB_UG_COLOR_CMD PRGB_HS(h, s)
 #define PRGB_KEY_COLOR(h, s) PRGB_KEY_COLOR_CMD PRGB_HS(h, s)
+#define PRGB_BG(pct) PRGB_BG_SET_CMD pct

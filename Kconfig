@@ -85,10 +85,14 @@ config ZMK_PRGB_FADE_MS
     range 50 10000
     default 1000
 
-config ZMK_PRGB_REACTIVE_BASE
-    int "Key brightness at rest in the reactive effects, in percent of the brightness"
+config ZMK_PRGB_BG_START
+    int "Reactive/ripple background in percent of the brightness (0 = keys dark)"
     range 0 100
-    default 15
+    default 0
+    help
+      What the keys rest at between presses in the reactive and ripple effects: a dim
+      tint of the accent (underglow) colour, so a pressed key fades out in one colour.
+      Initial value only; &prgb PRGB_BG_NEXT steps through 0, 5, 10, 15, 25 and is saved.
 
 config ZMK_PRGB_FPS
     int "Animation frame rate (the timer only runs while something animates)"

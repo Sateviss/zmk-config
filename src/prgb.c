@@ -61,7 +61,7 @@ BUILD_ASSERT(PRGB_KEY_LEDS <= 32, "Key state is kept in 32-bit masks");
 #define RIPPLES 4
 #define RIPPLE_WIDTH 18 /* ring thickness, in QMK grid units (a key is ~14-15) */
 
-#define STATE_VERSION 1
+#define STATE_VERSION 2
 
 struct prgb_state {
     uint8_t version;
@@ -71,7 +71,27 @@ struct prgb_state {
     uint8_t spd;
     struct prgb_hs ug;
     struct prgb_hs key;
+    uint8_t bg; /* reactive/ripple background, % of the brightness (0 = keys dark) */
 };
+
+/* Saved by the first version (no background level); migrated on load. */
+#define STATE_VERSION_1 1
+
+struct prgb_state_v1 {
+    uint8_t version;
+    bool on;
+    uint8_t effect;
+    uint8_t brt;
+    uint8_t spd;
+    struct prgb_hs ug;
+    struct prgb_hs key;
+};
+
+BUILD_ASSERT(sizeof(struct prgb_state) != sizeof(struct prgb_state_v1),
+             "Saved state formats must be told apart by size");
+
+/* Background levels PRGB_BG_NEXT steps through, in % of the brightness. */
+static const uint8_t bg_levels[] = {0, 5, 10, 15, 25};
 
 struct ripple {
     uint32_t start_ms;
@@ -133,13 +153,20 @@ static struct led_rgb hsv_to_rgb(uint16_t h, uint8_t s, uint8_t v) {
     return rgb;
 }
 
-/* level 0-256: 0 = a, 256 = b */
-static struct led_rgb blend(struct led_rgb a, struct led_rgb b, uint32_t level) {
-    struct led_rgb out = a;
+/*
+ * The accent colour dimmed for a fade: level 0-256 goes from the background (bg_pct %
+ * of the accent's brightness, 0 = off) to the full accent. All channels are scaled by
+ * the same factor, so hue and saturation stay the accent's the whole way: only the
+ * brightness changes.
+ */
+static struct led_rgb fade_accent(struct led_rgb accent, uint8_t bg_pct, uint32_t level) {
+    uint32_t bg = MIN(bg_pct, 100) * 256 / 100;
+    uint32_t scale = bg + (256 - bg) * MIN(level, 256) / 256; /* 0-256 */
+    struct led_rgb out = accent;
 
-    out.r = a.r + (((int)b.r - a.r) * (int)level) / 256;
-    out.g = a.g + (((int)b.g - a.g) * (int)level) / 256;
-    out.b = a.b + (((int)b.b - a.b) * (int)level) / 256;
+    out.r = accent.r * scale / 256;
+    out.g = accent.g * scale / 256;
+    out.b = accent.b * scale / 256;
     return out;
 }
 
@@ -183,12 +210,12 @@ static bool render_breathe(uint32_t now, uint8_t val) {
     return true;
 }
 
-/* Keys at a dim base; a pressed key shows the accent (underglow) colour while held,
- * then fades back. With ripples, each press also sends a ring across this half. */
+/* Keys rest at the background: a dim tint of the accent (underglow) colour, off by
+ * default. A pressed key shows the full accent while held, then its brightness fades
+ * back down to the background, staying in the accent colour. With ripples, each press
+ * also sends a ring across this half. The key colour is not used here. */
 static bool render_reactive(uint32_t now, uint8_t val, bool with_ripples) {
     struct led_rgb accent = hsv_to_rgb(state.ug.h, state.ug.s, val);
-    struct led_rgb base =
-        hsv_to_rgb(state.key.h, state.key.s, val * CONFIG_ZMK_PRGB_REACTIVE_BASE / 100);
     uint32_t fade = fade_ms();
     uint32_t held = atomic_get(&pressed);
     bool animating = false;
@@ -237,7 +264,7 @@ static bool render_reactive(uint32_t now, uint8_t val, bool with_ripples) {
             }
         }
 
-        pixels[UG_LEDS + k] = blend(base, accent, MIN(level, 256));
+        pixels[UG_LEDS + k] = fade_accent(accent, state.bg, level);
     }
 
     return animating;
@@ -332,7 +359,43 @@ static bool state_valid(const struct prgb_state *s) {
     return s->version == STATE_VERSION && s->effect < PRGB_EFF_COUNT &&
            s->brt <= PRGB_BRT_MAX && s->spd >= PRGB_SPD_MIN && s->spd <= PRGB_SPD_MAX &&
            s->ug.h < PRGB_HUE_MAX && s->ug.s <= PRGB_SAT_MAX && s->key.h < PRGB_HUE_MAX &&
-           s->key.s <= PRGB_SAT_MAX;
+           s->key.s <= PRGB_SAT_MAX && s->bg <= PRGB_BG_MAX;
+}
+
+/* Read the saved state, upgrading the first version (same fields minus bg). */
+static int read_state(size_t len, settings_read_cb read_cb, void *cb_arg,
+                      struct prgb_state *out) {
+    int rc;
+
+    if (len == sizeof(*out)) {
+        rc = read_cb(cb_arg, out, sizeof(*out));
+        return rc < 0 ? rc : 0;
+    }
+
+    if (len == sizeof(struct prgb_state_v1)) {
+        struct prgb_state_v1 v1;
+
+        rc = read_cb(cb_arg, &v1, sizeof(v1));
+        if (rc < 0) {
+            return rc;
+        }
+        if (v1.version != STATE_VERSION_1) {
+            return -EINVAL;
+        }
+        *out = (struct prgb_state){
+            .version = STATE_VERSION,
+            .on = v1.on,
+            .effect = v1.effect,
+            .brt = v1.brt,
+            .spd = v1.spd,
+            .ug = v1.ug,
+            .key = v1.key,
+            .bg = CONFIG_ZMK_PRGB_BG_START,
+        };
+        return 0;
+    }
+
+    return -EINVAL;
 }
 
 static int prgb_settings_set(const char *name, size_t len, settings_read_cb read_cb,
@@ -342,16 +405,7 @@ static int prgb_settings_set(const char *name, size_t len, settings_read_cb read
     if (settings_name_steq(name, "state", &next) && !next) {
         struct prgb_state loaded;
 
-        if (len != sizeof(loaded)) {
-            return -EINVAL;
-        }
-
-        int rc = read_cb(cb_arg, &loaded, sizeof(loaded));
-        if (rc < 0) {
-            return rc;
-        }
-
-        if (!state_valid(&loaded)) {
+        if (read_state(len, read_cb, cb_arg, &loaded) < 0 || !state_valid(&loaded)) {
             LOG_WRN("Ignoring saved lighting state (old format or out of range)");
             return 0;
         }
@@ -441,6 +495,23 @@ int prgb_set_color(enum prgb_zone zone, struct prgb_hs color) {
     return changed();
 }
 
+int prgb_calc_bg_next(void) {
+    for (size_t i = 0; i < ARRAY_SIZE(bg_levels); i++) {
+        if (bg_levels[i] > state.bg) {
+            return bg_levels[i];
+        }
+    }
+    return bg_levels[0];
+}
+
+int prgb_set_bg(int bg) {
+    if (bg < 0 || bg > PRGB_BG_MAX) {
+        return -EINVAL;
+    }
+    state.bg = bg;
+    return changed();
+}
+
 /* ---- events ------------------------------------------------------------------------ */
 
 static void on_position(const struct zmk_position_state_changed *ev) {
@@ -519,6 +590,7 @@ static int prgb_init(void) {
         .spd = CONFIG_ZMK_PRGB_SPD_START,
         .ug = {.h = CONFIG_ZMK_PRGB_UG_HUE_START, .s = CONFIG_ZMK_PRGB_UG_SAT_START},
         .key = {.h = CONFIG_ZMK_PRGB_KEY_HUE_START, .s = CONFIG_ZMK_PRGB_KEY_SAT_START},
+        .bg = CONFIG_ZMK_PRGB_BG_START,
     };
 
     uint32_t now = k_uptime_get_32();
