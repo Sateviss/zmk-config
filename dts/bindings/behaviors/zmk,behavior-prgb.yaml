@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT
+
+description: Per-key RGB lighting control (zones + effects)
+
+compatible: "zmk,behavior-prgb"
+
+include: two_param.yaml
