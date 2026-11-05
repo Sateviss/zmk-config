@@ -54,6 +54,8 @@ static const struct behavior_parameter_value_metadata no_arg_values[] = {
     CMD("Next Background Level", PRGB_BG_NEXT_CMD),
     CMD("Toggle Layer Key Map", PRGB_MAP_TOG_CMD),
     CMD("Toggle Underglow Pulse", PRGB_PULSE_TOG_CMD),
+    CMD("Max Brightness Up", PRGB_LIM_UP_CMD),
+    CMD("Max Brightness Down", PRGB_LIM_DN_CMD),
 };
 
 static const struct behavior_parameter_value_metadata effect_cmd_values[] = {
@@ -167,6 +169,11 @@ static int prgb_convert_params(struct zmk_behavior_binding *binding,
         binding->param2 = !prgb_pulse_enabled();
         binding->param1 = PRGB_PULSE_SET_CMD;
         break;
+    case PRGB_LIM_UP_CMD:
+    case PRGB_LIM_DN_CMD:
+        binding->param2 = prgb_calc_lim(binding->param1 == PRGB_LIM_UP_CMD ? 1 : -1);
+        binding->param1 = PRGB_LIM_SET_CMD;
+        break;
     default:
         return 0;
     }
@@ -243,6 +250,12 @@ static int prgb_binding_pressed(struct zmk_behavior_binding *binding,
         return prgb_set_map(binding->param2 != 0);
     case PRGB_PULSE_SET_CMD:
         return prgb_set_pulse(binding->param2 != 0);
+    case PRGB_LIM_UP_CMD:
+        return prgb_set_lim(prgb_calc_lim(1));
+    case PRGB_LIM_DN_CMD:
+        return prgb_set_lim(prgb_calc_lim(-1));
+    case PRGB_LIM_SET_CMD:
+        return prgb_set_lim(binding->param2);
     }
 
     return -ENOTSUP;

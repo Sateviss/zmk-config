@@ -126,7 +126,7 @@ BUILD_ASSERT(PRGB_KEY_LEDS <= 32, "Key state is kept in 32-bit masks");
 #define IND_FLASH_MS 900
 #define IND_FLASH_HOLD_MS 300 /* at full before it starts fading */
 
-#define STATE_VERSION 3
+#define STATE_VERSION 4
 
 struct prgb_state {
     uint8_t version;
@@ -139,6 +139,24 @@ struct prgb_state {
     uint8_t bg;  /* reactive/ripple background, % of the brightness (0 = keys dark) */
     uint8_t map;   /* layer key map on (v3; bytes, so a bad saved value can be checked) */
     uint8_t pulse; /* underglow pulse on key presses on (v3) */
+    uint8_t lim;   /* maximum brightness, % of the LEDs' full output (v4) */
+    uint8_t reserved[2]; /* zero; keeps the size apart from v3's */
+};
+
+/* Saved by the third version (fixed maximum brightness); migrated on load. */
+#define STATE_VERSION_3 3
+
+struct prgb_state_v3 {
+    uint8_t version;
+    bool on;
+    uint8_t effect;
+    uint8_t brt;
+    uint8_t spd;
+    struct prgb_hs ug;
+    struct prgb_hs key;
+    uint8_t bg;
+    uint8_t map;
+    uint8_t pulse;
 };
 
 /* Saved by the second version (no indicator toggles); migrated on load. */
@@ -170,8 +188,18 @@ struct prgb_state_v1 {
 
 BUILD_ASSERT(sizeof(struct prgb_state) != sizeof(struct prgb_state_v1) &&
                  sizeof(struct prgb_state) != sizeof(struct prgb_state_v2) &&
+                 sizeof(struct prgb_state) != sizeof(struct prgb_state_v3) &&
+                 sizeof(struct prgb_state_v3) != sizeof(struct prgb_state_v1) &&
+                 sizeof(struct prgb_state_v3) != sizeof(struct prgb_state_v2) &&
                  sizeof(struct prgb_state_v2) != sizeof(struct prgb_state_v1),
              "Saved state formats must be told apart by size");
+
+BUILD_ASSERT(CONFIG_ZMK_PRGB_BRT_MAX_MIN <= CONFIG_ZMK_PRGB_BRT_MAX_CEIL,
+             "ZMK_PRGB_BRT_MAX_MIN must not be above ZMK_PRGB_BRT_MAX_CEIL");
+
+/* Maximum brightness a fresh or migrated state starts with. */
+#define LIM_START CLAMP(CONFIG_ZMK_PRGB_BRT_MAX, CONFIG_ZMK_PRGB_BRT_MAX_MIN, \
+                        CONFIG_ZMK_PRGB_BRT_MAX_CEIL)
 
 /* Background levels PRGB_BG_NEXT steps through, in % of the brightness. */
 static const uint8_t bg_levels[] = {0, 5, 10, 15, 25};
@@ -588,7 +616,7 @@ static void render_handler(struct k_work *work) {
     if (!state.on || !awake) {
         memset(pixels, 0, sizeof(pixels));
     } else {
-        uint8_t val = state.brt * CONFIG_ZMK_PRGB_BRT_MAX * 255 / (PRGB_BRT_MAX * 100);
+        uint8_t val = state.brt * state.lim * 255 / (PRGB_BRT_MAX * 100);
         uint32_t header = ind_planes[PRGB_IND_PLANE_HEADER];
         struct led_rgb ug_full = hsv_to_rgb(state.ug.h, state.ug.s, val);
 
@@ -683,12 +711,13 @@ static bool state_valid(const struct prgb_state *s) {
     return s->version == STATE_VERSION && s->effect < PRGB_EFF_COUNT &&
            s->brt <= PRGB_BRT_MAX && s->spd >= PRGB_SPD_MIN && s->spd <= PRGB_SPD_MAX &&
            s->ug.h < PRGB_HUE_MAX && s->ug.s <= PRGB_SAT_MAX && s->key.h < PRGB_HUE_MAX &&
-           s->key.s <= PRGB_SAT_MAX && s->bg <= PRGB_BG_MAX && s->map <= 1 && s->pulse <= 1;
+           s->key.s <= PRGB_SAT_MAX && s->bg <= PRGB_BG_MAX && s->map <= 1 && s->pulse <= 1 &&
+           s->lim >= CONFIG_ZMK_PRGB_BRT_MAX_MIN && s->lim <= CONFIG_ZMK_PRGB_BRT_MAX_CEIL;
 }
 
 /*
- * Read the saved state, upgrading older versions: v1 (no bg) and v2 (no indicator
- * toggles) get the new fields' initial values. Formats are told apart by size.
+ * Read the saved state, upgrading older versions: v1 (no bg), v2 (no indicator
+ * toggles) and v3 (fixed maximum brightness) get the new fields' initial values. Formats are told apart by size.
  */
 static int read_state(size_t len, settings_read_cb read_cb, void *cb_arg,
                       struct prgb_state *out) {
@@ -697,6 +726,32 @@ static int read_state(size_t len, settings_read_cb read_cb, void *cb_arg,
     if (len == sizeof(*out)) {
         rc = read_cb(cb_arg, out, sizeof(*out));
         return rc < 0 ? rc : 0;
+    }
+
+    if (len == sizeof(struct prgb_state_v3)) {
+        struct prgb_state_v3 v3;
+
+        rc = read_cb(cb_arg, &v3, sizeof(v3));
+        if (rc < 0) {
+            return rc;
+        }
+        if (v3.version != STATE_VERSION_3) {
+            return -EINVAL;
+        }
+        *out = (struct prgb_state){
+            .version = STATE_VERSION,
+            .on = v3.on,
+            .effect = v3.effect,
+            .brt = v3.brt,
+            .spd = v3.spd,
+            .ug = v3.ug,
+            .key = v3.key,
+            .bg = v3.bg,
+            .map = v3.map,
+            .pulse = v3.pulse,
+            .lim = LIM_START,
+        };
+        return 0;
     }
 
     if (len == sizeof(struct prgb_state_v2)) {
@@ -720,6 +775,7 @@ static int read_state(size_t len, settings_read_cb read_cb, void *cb_arg,
             .bg = v2.bg,
             .map = IS_ENABLED(CONFIG_ZMK_PRGB_MAP_START),
             .pulse = IS_ENABLED(CONFIG_ZMK_PRGB_PULSE_START),
+            .lim = LIM_START,
         };
         return 0;
     }
@@ -745,6 +801,7 @@ static int read_state(size_t len, settings_read_cb read_cb, void *cb_arg,
             .bg = CONFIG_ZMK_PRGB_BG_START,
             .map = IS_ENABLED(CONFIG_ZMK_PRGB_MAP_START),
             .pulse = IS_ENABLED(CONFIG_ZMK_PRGB_PULSE_START),
+            .lim = LIM_START,
         };
         return 0;
     }
@@ -846,6 +903,20 @@ int prgb_set_brt(int brt) {
         return -EINVAL;
     }
     state.brt = brt;
+    flash(state.key, 100);
+    return changed();
+}
+
+int prgb_calc_lim(int direction) {
+    return CLAMP(state.lim + direction * CONFIG_ZMK_PRGB_BRT_MAX_STEP,
+                 CONFIG_ZMK_PRGB_BRT_MAX_MIN, CONFIG_ZMK_PRGB_BRT_MAX_CEIL);
+}
+
+int prgb_set_lim(int lim) {
+    if (lim < CONFIG_ZMK_PRGB_BRT_MAX_MIN || lim > CONFIG_ZMK_PRGB_BRT_MAX_CEIL) {
+        return -EINVAL;
+    }
+    state.lim = lim;
     flash(state.key, 100);
     return changed();
 }
@@ -1318,6 +1389,7 @@ static int prgb_init(void) {
         .bg = CONFIG_ZMK_PRGB_BG_START,
         .map = IS_ENABLED(CONFIG_ZMK_PRGB_MAP_START),
         .pulse = IS_ENABLED(CONFIG_ZMK_PRGB_PULSE_START),
+        .lim = LIM_START,
     };
 
     uint32_t now = k_uptime_get_32();

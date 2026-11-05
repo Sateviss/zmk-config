@@ -89,6 +89,9 @@ static inline uint8_t prgb_ind_prgb_class(uint32_t param1) {
     case PRGB_BRT_SET_CMD:
     case PRGB_BG_NEXT_CMD:
     case PRGB_BG_SET_CMD:
+    case PRGB_LIM_UP_CMD:
+    case PRGB_LIM_DN_CMD:
+    case PRGB_LIM_SET_CMD:
         return PRGB_IND_LIGHT_BRT;
     case PRGB_UG_HUE_UP_CMD:
     case PRGB_UG_HUE_DN_CMD:

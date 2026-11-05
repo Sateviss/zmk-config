@@ -55,6 +55,10 @@ int prgb_set_map(bool on);
 bool prgb_pulse_enabled(void);
 int prgb_set_pulse(bool on);
 
+/* Maximum brightness (what brightness 100 means), in % of the LEDs' full output. */
+int prgb_calc_lim(int direction);
+int prgb_set_lim(int lim);
+
 /* Peripheral: one indicator plane relayed by the central (see prgb_ind.h). */
 int prgb_relay_receive(uint32_t param1, uint32_t value);
 

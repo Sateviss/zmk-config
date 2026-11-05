@@ -69,6 +69,15 @@
  * the low byte of param1 (plane number above it, see src/prgb_ind.h). Not for keymaps. */
 #define PRGB_RELAY_CMD 28
 
+/*
+ * Maximum brightness: the ceiling the 0-100 brightness setting is scaled to, in % of
+ * the LEDs' full output (starts at CONFIG_ZMK_PRGB_BRT_MAX, saved). Added after the
+ * commands above so their numbers stay the same.
+ */
+#define PRGB_LIM_UP_CMD 29  /* relative: max brightness up a step */
+#define PRGB_LIM_DN_CMD 30  /* relative: max brightness down a step */
+#define PRGB_LIM_SET_CMD 31 /* absolute, param2: max brightness in % */
+
 #define PRGB_HS(h, s) (((h) << 8) | (s))
 
 #define PRGB_TOG PRGB_TOG_CMD 0
@@ -91,6 +100,8 @@
 #define PRGB_BG_NEXT PRGB_BG_NEXT_CMD 0
 #define PRGB_MAP_TOG PRGB_MAP_TOG_CMD 0
 #define PRGB_PULSE_TOG PRGB_PULSE_TOG_CMD 0
+#define PRGB_LIM_UP PRGB_LIM_UP_CMD 0
+#define PRGB_LIM_DN PRGB_LIM_DN_CMD 0
 
 #define PRGB_EFF(e) PRGB_EFF_SET_CMD e
 #define PRGB_UG_COLOR(h, s) PRGB_UG_COLOR_CMD PRGB_HS(h, s)
@@ -98,3 +109,4 @@
 #define PRGB_BG(pct) PRGB_BG_SET_CMD pct
 #define PRGB_MAP(on) PRGB_MAP_SET_CMD on
 #define PRGB_PULSE(on) PRGB_PULSE_SET_CMD on
+#define PRGB_LIM(pct) PRGB_LIM_SET_CMD pct
