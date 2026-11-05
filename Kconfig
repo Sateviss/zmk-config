@@ -22,9 +22,31 @@ config ZMK_PRGB_UNDERGLOW_LEDS
     default 5
 
 config ZMK_PRGB_BRT_MAX
-    int "Maximum brightness in percent (the 0-100 brightness setting is scaled to this)"
+    int "Initial maximum brightness in percent (the 0-100 brightness setting is scaled to this)"
     range 1 100
     default 50
+    help
+      Starting value of the maximum brightness, before any saved state. It can be
+      changed at runtime with &prgb PRGB_LIM_UP / PRGB_LIM_DN (saved), between
+      ZMK_PRGB_BRT_MAX_MIN and ZMK_PRGB_BRT_MAX_CEIL.
+
+config ZMK_PRGB_BRT_MAX_MIN
+    int "Lowest maximum brightness PRGB_LIM_DN goes to, in percent"
+    range 1 100
+    default 10
+
+config ZMK_PRGB_BRT_MAX_CEIL
+    int "Highest maximum brightness PRGB_LIM_UP goes to, in percent"
+    range 1 100
+    default 100
+    help
+      Hard ceiling on the LED output, whatever is saved or set from the keymap. Lower
+      it if the supply can't take all LEDs at full white.
+
+config ZMK_PRGB_BRT_MAX_STEP
+    int "Maximum brightness step in percent"
+    range 1 100
+    default 10
 
 config ZMK_PRGB_BRT_START
     int "Initial brightness in percent of ZMK_PRGB_BRT_MAX"
