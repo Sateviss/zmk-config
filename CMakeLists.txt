@@ -8,4 +8,4 @@ target_sources_ifdef(CONFIG_ZMK_PRGB app PRIVATE src/prgb.c)
 
 # Custom OLED status screen (see src/display/Kconfig).
 target_sources_ifdef(CONFIG_ZMK_OLED_STATUS app PRIVATE src/display/status_screen.c
-                     src/display/oled_layout.c)
+                     src/display/oled_layout.c src/display/oled_icons.c)

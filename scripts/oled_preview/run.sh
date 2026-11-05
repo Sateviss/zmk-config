@@ -19,6 +19,6 @@ find "$LVGL/src" -name '*.c' | while read -r f; do
 done | xargs -P"$(nproc)" -I{} sh -c \
     'gcc -c -O1 -w -DLV_CONF_INCLUDE_SIMPLE -I"'"$HERE"'" -I"'"$LVGL"'" "{}" -o "'"$OUT"'/obj/$(echo "{}" | tr / _).o"'
 gcc -O1 -Wall -DLV_CONF_INCLUDE_SIMPLE -I"$HERE" -I"$LVGL" -I"$REPO/src/display" \
-    "$HERE/preview.c" "$REPO/src/display/oled_layout.c" "$OUT"/obj/*.o -lm -o "$OUT/preview"
+    "$HERE/preview.c" "$REPO/src/display/oled_layout.c" "$REPO/src/display/oled_icons.c" "$OUT"/obj/*.o -lm -o "$OUT/preview"
 "$OUT/preview" "$OUT" "$DIR"
 python3 "$HERE/compose.py" "$OUT" "$REPO/docs/oled-preview.png" "$DIR"

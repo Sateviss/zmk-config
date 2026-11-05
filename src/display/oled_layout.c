@@ -23,13 +23,17 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "oled_icons.h"
 #include "oled_layout.h"
 
 #define W OLED_LAYOUT_W
 
-#define FONT_BIG (&lv_font_montserrat_12)
-#define FONT_SMALL (&lv_font_montserrat_10)
+#define FONT_BIG (&oled_font_12)   /* Montserrat 12 + oled_icons */
+#define FONT_SMALL (&oled_font_10) /* Montserrat 10 + oled_icons */
 #define FONT_UNIT (&lv_font_montserrat_8)
+
+/* Connection icon (BLE profile, split link). */
+#define OLED_ICON_CONN OLED_ICON_WIFI /* or OLED_ICON_RADIO */
 
 #define LINE_H 15 /* line height of FONT_BIG */
 #define GAP 2     /* space around a rule */
@@ -200,12 +204,12 @@ void oled_layout_set_conn(const struct oled_conn *c) {
         snprintf(text, sizeof(text), "%s", c->connected ? LV_SYMBOL_USB : LV_SYMBOL_USB "?");
         break;
     case OLED_CONN_BLE:
-        snprintf(text, sizeof(text), LV_SYMBOL_BLUETOOTH "%u%s", c->profile + 1,
+        snprintf(text, sizeof(text), OLED_ICON_CONN "%u%s", c->profile + 1,
                  !c->bonded ? LV_SYMBOL_SETTINGS
                             : (c->connected ? LV_SYMBOL_OK : LV_SYMBOL_CLOSE));
         break;
     case OLED_CONN_SPLIT:
-        snprintf(text, sizeof(text), LV_SYMBOL_BLUETOOTH "%s",
+        snprintf(text, sizeof(text), OLED_ICON_CONN "%s",
                  c->connected ? LV_SYMBOL_OK : LV_SYMBOL_CLOSE);
         break;
     case OLED_CONN_NONE:
