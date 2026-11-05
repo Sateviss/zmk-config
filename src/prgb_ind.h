@@ -358,13 +358,14 @@ static const struct prgb_ind_color prgb_ind_class_colors[PRGB_IND_CLASSES] = {
 static const struct prgb_ind_color prgb_ind_mod_color = {PRGB_IND_HUE_GREEN, 100, 100, false};
 static const struct prgb_ind_color prgb_ind_caps_color = {PRGB_IND_HUE_CYAN, 100, 100, false};
 
-/* Underglow tint while a layer's key map is shown. */
+/* Underglow tint while a layer's key map is shown. A tint with pct 0 leaves the
+ * underglow to the effect, so it looks the same as on the default layer. */
 static inline struct prgb_ind_color prgb_ind_layer_tint(uint8_t layer) {
     switch (layer) {
     case 1: /* Control */
         return (struct prgb_ind_color){PRGB_IND_HUE_BLUE, 100, 100, false};
-    case 2: /* Extra */
-        return (struct prgb_ind_color){285, 100, 100, false}; /* purple */
+    case 2: /* Extra: underglow as on the default layer */
+        return (struct prgb_ind_color){0, 0, 0, false};
     default:
         return (struct prgb_ind_color){(uint16_t)((layer * 67 + 40) % 360), 100, 100, false};
     }

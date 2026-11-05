@@ -10,6 +10,8 @@
  * Battery voltage is read from the zmk,battery sensor (SENSOR_CHAN_GAUGE_VOLTAGE) on
  * ZMK's low priority work queue, the queue ZMK's own battery reporting uses, so the two
  * never read the ADC at the same time and input handling is never blocked by it.
+ * While on battery, the readings also feed battery_estimate.c, which predicts the time
+ * left from the drain over the last two hours (shown under the voltage).
  *
  * Rotation: LVGL is told the display is rotated, so it lays the screen out at 32x128;
  * the flush callback below turns each rendered area back into the panel's 128x32
@@ -39,6 +41,7 @@
 #include <zmk/events/battery_state_changed.h>
 #include <zmk/workqueue.h>
 
+#include "battery_estimate.h"
 #include "oled_layout.h"
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
@@ -187,6 +190,15 @@ static const struct device *const battery = NULL;
 #endif
 
 static atomic_t battery_mv = ATOMIC_INIT(-1);
+static atomic_t battery_est_min = ATOMIC_INIT(OLED_EST_PENDING);
+
+/* Low priority work queue only. */
+static struct batt_est est;
+/* Readings right after USB power is removed are skipped: the cell's voltage sinks for a
+ * while after charging, which would look like a fast drain. */
+#define EST_SETTLE_S (10 * 60)
+static bool est_was_powered;
+static uint32_t est_settle_until;
 
 static bool usb_powered(void) {
 #if IS_ENABLED(CONFIG_ZMK_USB)
@@ -197,7 +209,26 @@ static bool usb_powered(void) {
 }
 
 static void battery_show(struct k_work *work) {
-    oled_layout_set_battery(atomic_get(&battery_mv), usb_powered());
+    oled_layout_set_battery(atomic_get(&battery_mv), usb_powered(),
+                            atomic_get(&battery_est_min));
+}
+
+/* Runs on the low priority work queue. */
+static void estimate_update(int mv) {
+    uint32_t now = k_uptime_seconds();
+    bool powered = usb_powered();
+
+    if (powered) {
+        batt_est_reset(&est);
+    } else if (est_was_powered) {
+        est_settle_until = now + EST_SETTLE_S;
+    }
+    est_was_powered = powered;
+
+    if (!powered && (int32_t)(now - est_settle_until) >= 0) {
+        batt_est_add(&est, now, mv);
+    }
+    atomic_set(&battery_est_min, batt_est_minutes(&est, now));
 }
 
 static K_WORK_DEFINE(battery_show_work, battery_show);
@@ -215,7 +246,10 @@ static void battery_read(struct k_work *work) {
         return;
     }
 
-    atomic_set(&battery_mv, v.val1 * 1000 + v.val2 / 1000);
+    int mv = v.val1 * 1000 + v.val2 / 1000;
+
+    atomic_set(&battery_mv, mv);
+    estimate_update(mv);
     if (zmk_display_is_initialized()) {
         k_work_submit_to_queue(zmk_display_work_q(), &battery_show_work);
     }

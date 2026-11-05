@@ -7,6 +7,7 @@
  *   ----
  *   battery      icon (+ charge bolt while on USB power, central only)
  *   voltage      e.g. 3.92V
+ *   time left    on battery, e.g. ~9h (small; "--" until there is enough data)
  *   ----
  *   layer        central only: active layer name
  *   ----
@@ -52,7 +53,13 @@ struct line {
 
 static struct line conn, batt_icon, layer, fx_name, fx_brt;
 static lv_obj_t *volt_num, *volt_unit; /* "3.92" in FONT_BIG + "V" in FONT_UNIT */
+static lv_obj_t *est;                  /* "~9h" in FONT_UNIT */
 static int16_t volt_y;
+
+/* The voltage has no descenders, so the time left (FONT_UNIT, also without them)
+ * tucks in below its baseline. */
+#define VOLT_H (LINE_H - 3)
+#define EST_H 9
 static bool created;
 
 /* ---- helpers ------------------------------------------------------------------------ */
@@ -180,7 +187,12 @@ void oled_layout_create(lv_obj_t *screen, bool central) {
     volt_num = label_create(screen, FONT_BIG);
     volt_unit = label_create(screen, FONT_UNIT);
     lv_label_set_text_static(volt_unit, "V");
-    y += LINE_H;
+    y += VOLT_H;
+    est = label_create(screen, FONT_UNIT);
+    lv_obj_set_size(est, W, lv_font_get_line_height(FONT_UNIT));
+    lv_obj_set_style_text_align(est, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_pos(est, 0, y);
+    y += EST_H;
     rule(screen, y + GAP);
     y += 2 * GAP + 1;
 
@@ -194,7 +206,7 @@ void oled_layout_create(lv_obj_t *screen, bool central) {
     line_create(&fx_brt, screen, y, FIT_ONE_LINE);
 
     created = true;
-    oled_layout_set_battery(-1, false);
+    oled_layout_set_battery(-1, false, OLED_EST_NONE);
 }
 
 void oled_layout_set_conn(const struct oled_conn *c) {
@@ -235,12 +247,33 @@ static const char *battery_symbol(int mv) {
     return LV_SYMBOL_BATTERY_EMPTY;
 }
 
-void oled_layout_set_battery(int mv, bool charging) {
+static void set_estimate(int minutes) {
+    char text[16];
+
+    if (minutes == OLED_EST_NONE) {
+        text[0] = '\0';
+    } else if (minutes < 0) {
+        snprintf(text, sizeof(text), "--");
+    } else if (minutes < 60) {
+        snprintf(text, sizeof(text), "~%dm", minutes);
+    } else if (minutes < 48 * 60) {
+        snprintf(text, sizeof(text), "~%dh", (minutes + 30) / 60);
+    } else if (minutes < 100 * 24 * 60) {
+        snprintf(text, sizeof(text), "~%dd", (minutes + 12 * 60) / (24 * 60));
+    } else {
+        snprintf(text, sizeof(text), ">99d");
+    }
+    set_text(est, text);
+}
+
+void oled_layout_set_battery(int mv, bool charging, int est_minutes) {
     char text[16];
 
     if (!created) {
         return;
     }
+
+    set_estimate(mv < 0 || charging ? OLED_EST_NONE : est_minutes);
 
     snprintf(text, sizeof(text), "%s%s", mv < 0 ? LV_SYMBOL_BATTERY_EMPTY : battery_symbol(mv),
              charging ? LV_SYMBOL_CHARGE : "");
