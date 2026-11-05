@@ -7,6 +7,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #define PRGB_HUE_MAX 360
@@ -56,3 +57,20 @@ int prgb_set_pulse(bool on);
 
 /* Peripheral: one indicator plane relayed by the central (see prgb_ind.h). */
 int prgb_relay_receive(uint32_t param1, uint32_t value);
+
+/* Read-only snapshot of the lighting state, for the OLED status screen. */
+struct prgb_status {
+    bool on;
+    uint8_t effect; /* PRGB_EFF_* */
+    uint8_t brt;    /* 0-100, % of CONFIG_ZMK_PRGB_BRT_MAX */
+    uint8_t spd;
+};
+
+struct prgb_status prgb_get_status(void);
+
+/*
+ * Display name of an effect (PRGB_EFF_*), taken from the effect list the &prgb behavior
+ * gives ZMK Studio (behavior_prgb.c, needs CONFIG_ZMK_BEHAVIOR_METADATA). For an effect
+ * without a name there, "FX <n>" is written to buf and buf is returned.
+ */
+const char *prgb_effect_name(uint8_t effect, char *buf, size_t len);

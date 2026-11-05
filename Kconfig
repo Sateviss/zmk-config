@@ -135,3 +135,5 @@ config ZMK_PRGB_AUTO_OFF_IDLE
     default y
 
 endif # ZMK_PRGB
+
+rsource "src/display/Kconfig"
