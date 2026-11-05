@@ -23,14 +23,15 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "oled_icons.h"
+#include "oled_fonts.h"
 #include "oled_layout.h"
 
 #define W OLED_LAYOUT_W
 
-#define FONT_BIG (&oled_font_12)   /* Montserrat 12 + oled_icons */
-#define FONT_SMALL (&oled_font_10) /* Montserrat 10 + oled_icons */
-#define FONT_UNIT (&lv_font_montserrat_8)
+/* 1-bit fonts (oled_fonts.c), so strokes stay thin on the 1-bit panel */
+#define FONT_BIG (&oled_font_12)
+#define FONT_SMALL (&oled_font_10)
+#define FONT_UNIT (&oled_font_8)
 
 /* Connection icon (BLE profile, split link). */
 #define OLED_ICON_CONN OLED_ICON_WIFI /* or OLED_ICON_RADIO */

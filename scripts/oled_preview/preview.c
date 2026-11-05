@@ -83,7 +83,7 @@ static const struct scenario scenarios[] = {
     {"right-off", false, {OLED_CONN_SPLIT, false, false, 0}, 3512, false, NULL,
      {true, false, 50, 0, "Static"}},
     {"right-long", false, {OLED_CONN_SPLIT, true, false, 0}, 4012, false, NULL,
-     {true, true, 70, 5, "Gradient"}},
+     {true, true, 70, 5, "Heatmap"}},
     {"left-static", true, {OLED_CONN_BLE, true, true, 4}, 3800, false, "Base",
      {true, true, 5, 0, "Static"}},
 };
