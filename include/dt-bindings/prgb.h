@@ -13,12 +13,8 @@
 #define PRGB_EFF_RIPPLE 3   /* like reactive, plus a ring spreading out from the key */
 #define PRGB_EFF_RAINBOW 4  /* keys: rainbow across the board by x position */
 /* Added after the effects above so their numbers (saved, and in PRGB_EFF(e)) stay. */
-#define PRGB_EFF_GRADIENT 5 /* keys: still hue gradient by x from the key hue; speed = span */
-#define PRGB_EFF_TWINKLE 6  /* random keys fade in and out in the accent colour */
-#define PRGB_EFF_HEATMAP 7  /* presses warm keys (and neighbours) blue -> green -> red */
-#define PRGB_EFF_RAINDROP 8 /* random keys change now and then to hues near the key hue */
-#define PRGB_EFF_CROSS 9    /* a press lights its row and column in the accent, fading */
-#define PRGB_EFF_COUNT 10
+#define PRGB_EFF_HEATMAP 5 /* presses warm keys (and neighbours) blue -> green -> red */
+#define PRGB_EFF_COUNT 6
 
 /* Relative commands (use these in a keymap) */
 #define PRGB_TOG_CMD 0

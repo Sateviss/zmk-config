@@ -61,14 +61,9 @@ BUILD_ASSERT(PRGB_KEY_LEDS <= 32, "Key state is kept in 32-bit masks");
 #define RIPPLES 4
 #define RIPPLE_WIDTH 18 /* ring thickness, in QMK grid units (a key is ~14-15) */
 
-#define TWINKLE_LIT 4 /* keys twinkling at once on average, per half */
-
 #define HEAT_MAX 4096           /* fixed-point heat of a key: 0 cold .. HEAT_MAX red hot */
 #define HEAT_HIT (HEAT_MAX / 3) /* a press: three quick presses make a key red */
 #define HEAT_SPREAD 24          /* neighbours closer than this (grid units) warm a little */
-
-#define CROSS_BAND 8  /* column arm: keys within this many grid units of x (falloff) */
-#define CROSS_ARM 160 /* grid units along an arm over which it fades to nothing */
 
 #define STATE_VERSION 2
 
@@ -123,26 +118,10 @@ static uint32_t released_ms[PRGB_KEY_LEDS];
 static struct ripple ripples[RIPPLES];
 static uint8_t next_ripple;
 
-/* Twinkle: when each key's twinkle started, and when the next one starts. */
-static uint32_t twinkle_ms[PRGB_KEY_LEDS];
-static uint32_t twinkle_next_ms;
-
 /* Heatmap: presses since the last frame (set by the event, taken by the renderer). */
 static atomic_t heat_hits;
 static uint16_t heat[PRGB_KEY_LEDS];
 static uint32_t heat_ms;
-
-/* Raindrop: each key's hue, the next drop, and the start time the hues were seeded at. */
-static uint16_t drop_hue[PRGB_KEY_LEDS];
-static uint32_t drop_next_ms;
-static uint32_t drop_seeded_ms;
-static bool drop_seeded;
-
-/* Delay to the next frame while animating; effects that change rarely raise it. */
-static uint32_t frame_delay_ms;
-
-/* xorshift32; only used from the render work item. Never 0. */
-static uint32_t rng_state = 0x2545f491;
 
 static struct k_work_delayable render_work;
 
@@ -217,18 +196,6 @@ static uint32_t isqrt(uint32_t n) {
     }
     return root;
 }
-
-static uint32_t rng(void) {
-    uint32_t x = rng_state;
-
-    x ^= x << 13;
-    x ^= x >> 17;
-    x ^= x << 5;
-    return rng_state = x;
-}
-
-/* Has time `t` been reached (wrap-safe)? */
-static bool reached(uint32_t now, uint32_t t) { return (int32_t)(now - t) >= 0; }
 
 /* ---- rendering --------------------------------------------------------------------- */
 
@@ -326,52 +293,6 @@ static bool render_rainbow(uint32_t now, uint8_t val) {
     return true;
 }
 
-/* Keys: a still gradient by x across the whole board, starting at the key hue on the
- * left edge and turning through 60 degrees per speed step (60-300) by the right edge,
- * fully saturated like Rainbow. Underglow keeps its colour. Nothing animates. */
-static bool render_gradient(uint8_t val) {
-    uint32_t span = state.spd * 60;
-
-    fill(0, UG_LEDS, hsv_to_rgb(state.ug.h, state.ug.s, val));
-    for (int k = 0; k < PRGB_KEY_LEDS; k++) {
-        uint32_t h = state.key.h + prgb_key_leds[k].x * span / QMK_GRID_W;
-        pixels[UG_LEDS + k] = hsv_to_rgb(h % PRGB_HUE_MAX, PRGB_SAT_MAX, val);
-    }
-    return false;
-}
-
-/* Keys rest at the background (as in Reactive); now and then a random key fades up to
- * the full accent colour and back down, smoothly, over 2 x the fade time. About
- * TWINKLE_LIT keys are lit at once. */
-static bool render_twinkle(uint32_t now, uint8_t val) {
-    struct led_rgb accent = hsv_to_rgb(state.ug.h, state.ug.s, val);
-    uint32_t len = 2 * fade_ms();
-
-    if (reached(now, twinkle_next_ms)) {
-        int k = rng() % PRGB_KEY_LEDS;
-
-        if (now - twinkle_ms[k] >= len) {
-            twinkle_ms[k] = now;
-        }
-        /* one start per len / TWINKLE_LIT on average: about TWINKLE_LIT lit at a time */
-        twinkle_next_ms = now + 1 + rng() % (2 * len / TWINKLE_LIT);
-    }
-
-    fill(0, UG_LEDS, accent);
-    for (int k = 0; k < PRGB_KEY_LEDS; k++) {
-        uint32_t age = now - twinkle_ms[k];
-        uint32_t level = 0;
-
-        if (age < len) {
-            uint32_t tri = age * 512 / len;              /* 0-511 */
-            tri = tri < 256 ? tri : 511 - tri;           /* 0-255-0 */
-            level = tri * tri * (765 - 2 * tri) / 65025; /* smoothstep, 0-255 */
-        }
-        pixels[UG_LEDS + k] = fade_accent(accent, state.bg, level);
-    }
-    return true;
-}
-
 /* Keys: each press warms the key by a third (and keys within HEAT_SPREAD a little), and
  * heat runs from blue through green to red. Full heat cools off in 6 x the fade time (a
  * single press in 2 x). Cold keys show the background, as in Reactive. */
@@ -426,101 +347,6 @@ static bool render_heatmap(uint32_t now, uint8_t val) {
     return animating;
 }
 
-/* Keys: each in its own hue within +-60 degrees of the key hue, fully saturated; every
- * 450 ms / speed one random key changes to a new one. Only renders when a drop falls. */
-static bool render_raindrop(uint32_t now, uint8_t val) {
-    uint32_t every = 450 / state.spd;
-
-    if (!drop_seeded || drop_seeded_ms != anim_start_ms) {
-        for (int k = 0; k < PRGB_KEY_LEDS; k++) {
-            drop_hue[k] = rng() % 121;
-        }
-        drop_seeded = true;
-        drop_seeded_ms = anim_start_ms;
-        drop_next_ms = now + every;
-    } else if (reached(now, drop_next_ms)) {
-        drop_hue[rng() % PRGB_KEY_LEDS] = rng() % 121;
-        drop_next_ms = now + every;
-    }
-
-    fill(0, UG_LEDS, hsv_to_rgb(state.ug.h, state.ug.s, val));
-    for (int k = 0; k < PRGB_KEY_LEDS; k++) {
-        /* offset -60..+60 stored as 0..120 */
-        uint32_t h = (state.key.h + PRGB_HUE_MAX + drop_hue[k] - 60) % PRGB_HUE_MAX;
-        pixels[UG_LEDS + k] = hsv_to_rgb(h, PRGB_SAT_MAX, val);
-    }
-
-    uint32_t wait = drop_next_ms - now;
-    frame_delay_ms = wait > 0 && wait <= every ? wait : every;
-    return true;
-}
-
-/*
- * Keymap row of a key position on the Lily58: 0-11, 12-23, 24-35, 36-49 (bottom row
- * plus the two inner keys), 50-57 thumbs. Rows by y would be ambiguous: the column
- * stagger moves a row's outer keys about half a row down.
- */
-static uint8_t layout_row(uint8_t position) {
-    return position < 36 ? position / 12 : position < 50 ? 3 : 4;
-}
-
-/* Like Reactive, but a held or just-released key lights its keymap row and its column
- * (keys at about the same x) in the accent colour, fading out over the fade time and
- * along the arms. Keys rest at the background. */
-static bool render_cross(uint32_t now, uint8_t val) {
-    struct led_rgb accent = hsv_to_rgb(state.ug.h, state.ug.s, val);
-    uint32_t fade = fade_ms();
-    uint32_t held = atomic_get(&pressed);
-    static uint16_t src_level[PRGB_KEY_LEDS]; /* off the small work queue stack */
-    bool animating = false;
-    bool any = false;
-
-    for (int j = 0; j < PRGB_KEY_LEDS; j++) {
-        uint32_t since = now - released_ms[j];
-
-        src_level[j] = 0;
-        if (held & BIT(j)) {
-            src_level[j] = 256;
-            any = true;
-        } else if (since < fade) {
-            src_level[j] = 256 - since * 256 / fade;
-            animating = any = true;
-        }
-    }
-
-    fill(0, UG_LEDS, accent);
-    for (int k = 0; k < PRGB_KEY_LEDS; k++) {
-        const struct prgb_key_led *kl = &prgb_key_leds[k];
-        uint32_t level = 0;
-
-        for (int j = 0; any && j < PRGB_KEY_LEDS && level < 256; j++) {
-            if (!src_level[j]) {
-                continue;
-            }
-            const struct prgb_key_led *jl = &prgb_key_leds[j];
-            int dx = (int)kl->x - jl->x;
-            int dy = (int)kl->y - jl->y;
-            uint32_t lvl = 0;
-
-            dx = dx < 0 ? -dx : dx;
-            dy = dy < 0 ? -dy : dy;
-
-            /* row arm: same keymap row, fading along x */
-            if (layout_row(kl->position) == layout_row(jl->position) && dx < CROSS_ARM) {
-                lvl = src_level[j] * (CROSS_ARM - dx) / CROSS_ARM;
-            }
-            /* column arm: about the same x, fading along y */
-            if (dx < CROSS_BAND && dy < CROSS_ARM) {
-                uint32_t col = src_level[j] * (CROSS_ARM - dy) / CROSS_ARM;
-                lvl = MAX(lvl, col * (CROSS_BAND - dx) / CROSS_BAND);
-            }
-            level = MAX(level, lvl);
-        }
-        pixels[UG_LEDS + k] = fade_accent(accent, state.bg, level);
-    }
-    return animating;
-}
-
 static void render_handler(struct k_work *work) {
     uint32_t now = k_uptime_get_32();
     bool animating = false;
@@ -532,7 +358,6 @@ static void render_handler(struct k_work *work) {
 
         /* LEDs past the underglow + key zones (if the chain is longer) stay dark */
         memset(pixels, 0, sizeof(pixels));
-        frame_delay_ms = FRAME_MS;
 
         switch (state.effect) {
         case PRGB_EFF_BREATHE:
@@ -547,20 +372,8 @@ static void render_handler(struct k_work *work) {
         case PRGB_EFF_RAINBOW:
             animating = render_rainbow(now, val);
             break;
-        case PRGB_EFF_GRADIENT:
-            animating = render_gradient(val);
-            break;
-        case PRGB_EFF_TWINKLE:
-            animating = render_twinkle(now, val);
-            break;
         case PRGB_EFF_HEATMAP:
             animating = render_heatmap(now, val);
-            break;
-        case PRGB_EFF_RAINDROP:
-            animating = render_raindrop(now, val);
-            break;
-        case PRGB_EFF_CROSS:
-            animating = render_cross(now, val);
             break;
         case PRGB_EFF_STATIC:
         default:
@@ -577,7 +390,7 @@ static void render_handler(struct k_work *work) {
 
     if (animating) {
         k_work_schedule_for_queue(zmk_workqueue_lowprio_work_q(), &render_work,
-                                  K_MSEC(frame_delay_ms));
+                                  K_MSEC(FRAME_MS));
     }
 }
 
@@ -807,7 +620,7 @@ static void on_position(const struct zmk_position_state_changed *ev) {
 
     if (state.on && awake &&
         (state.effect == PRGB_EFF_REACTIVE || state.effect == PRGB_EFF_RIPPLE ||
-         state.effect == PRGB_EFF_HEATMAP || state.effect == PRGB_EFF_CROSS)) {
+         state.effect == PRGB_EFF_HEATMAP)) {
         kick();
     }
 }
@@ -869,15 +682,8 @@ static int prgb_init(void) {
     for (int k = 0; k < PRGB_KEY_LEDS; k++) {
         key_for_position[prgb_key_leds[k].position] = k;
         released_ms[k] = now - LONG_AGO_MS;
-        twinkle_ms[k] = now - LONG_AGO_MS;
     }
     heat_ms = now;
-    twinkle_next_ms = now;
-    rng_state ^= k_cycle_get_32();
-    if (!rng_state) {
-        rng_state = 0x2545f491;
-    }
-    frame_delay_ms = FRAME_MS;
     for (int r = 0; r < RIPPLES; r++) {
         ripples[r].start_ms = now - LONG_AGO_MS;
     }

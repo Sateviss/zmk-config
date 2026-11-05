@@ -60,9 +60,7 @@ static const struct behavior_parameter_value_metadata effect_values[] = {
     CMD("Static", PRGB_EFF_STATIC),   CMD("Breathe", PRGB_EFF_BREATHE),
     CMD("Reactive", PRGB_EFF_REACTIVE), CMD("Ripple", PRGB_EFF_RIPPLE),
     CMD("Rainbow", PRGB_EFF_RAINBOW),
-    CMD("Gradient", PRGB_EFF_GRADIENT), CMD("Twinkle", PRGB_EFF_TWINKLE),
-    CMD("Heatmap", PRGB_EFF_HEATMAP),   CMD("Raindrop", PRGB_EFF_RAINDROP),
-    CMD("Cross", PRGB_EFF_CROSS),
+    CMD("Heatmap", PRGB_EFF_HEATMAP),
 };
 
 BUILD_ASSERT(ARRAY_SIZE(effect_values) == PRGB_EFF_COUNT, "Every effect needs a name here");

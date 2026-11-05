@@ -67,12 +67,11 @@ config ZMK_PRGB_KEY_SAT_START
     default 0
 
 config ZMK_PRGB_EFF_START
-    int "Initial effect (0-9, see <dt-bindings/prgb.h>)"
-    range 0 9
+    int "Initial effect (0-5, see <dt-bindings/prgb.h>)"
+    range 0 5
     default 0
     help
-      0 static, 1 breathe, 2 reactive, 3 ripple, 4 rainbow, 5 gradient, 6 twinkle,
-      7 heatmap, 8 raindrop, 9 cross.
+      0 static, 1 breathe, 2 reactive, 3 ripple, 4 rainbow, 5 heatmap.
 
 config ZMK_PRGB_SPD_START
     int "Initial animation speed (1-5)"
