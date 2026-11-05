@@ -1,0 +1,17 @@
+/*
+ * SPDX-License-Identifier: MIT
+ */
+
+#include <dt-bindings/prgb.h>
+
+/ {
+    behaviors {
+        // Invoked on the peripheral too (global locality), so the node name must be
+        // <= 8 characters.
+        prgb: prgb {
+            compatible = "zmk,behavior-prgb";
+            #binding-cells = <2>;
+            display-name = "Per-key RGB";
+        };
+    };
+};

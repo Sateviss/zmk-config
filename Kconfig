@@ -1,0 +1,106 @@
+# Per-key RGB lighting for the splitkb Aurora Lily58 (this repo's ZMK module).
+# SPDX-License-Identifier: MIT
+
+menuconfig ZMK_PRGB
+    bool "Per-key RGB lighting (underglow + key zones, reactive effects)"
+    depends on !ZMK_RGB_UNDERGLOW
+    depends on SHIELD_SPLITKB_AURORA_LILY58_LEFT || SHIELD_SPLITKB_AURORA_LILY58_RIGHT
+    select LED_STRIP
+    select ZMK_LOW_PRIORITY_WORK_QUEUE
+    # The WS2812 driver on this board talks SPI (stock underglow defaults SPI on too).
+    imply SPI
+    help
+      Drives the zmk,underglow LED strip itself, instead of ZMK's RGB underglow:
+      LEDs 0-4 are the underglow zone, 5-33 the per-key zone. Replaces
+      CONFIG_ZMK_RGB_UNDERGLOW, which must be off. Controlled by the &prgb behavior
+      (#include <behaviors/prgb.dtsi> in the keymap).
+
+if ZMK_PRGB
+
+config ZMK_PRGB_UNDERGLOW_LEDS
+    int "Number of underglow LEDs at the start of the chain"
+    default 5
+
+config ZMK_PRGB_BRT_MAX
+    int "Maximum brightness in percent (the 0-100 brightness setting is scaled to this)"
+    range 1 100
+    default 50
+
+config ZMK_PRGB_BRT_START
+    int "Initial brightness in percent of ZMK_PRGB_BRT_MAX"
+    range 0 100
+    default 100
+
+config ZMK_PRGB_BRT_STEP
+    int "Brightness step"
+    range 1 100
+    default 10
+
+config ZMK_PRGB_HUE_STEP
+    int "Hue step in degrees"
+    range 1 359
+    default 10
+
+config ZMK_PRGB_SAT_STEP
+    int "Saturation step"
+    range 1 100
+    default 10
+
+config ZMK_PRGB_UG_HUE_START
+    int "Initial underglow hue (0-359); also the accent colour of the reactive effects"
+    range 0 359
+    default 15
+
+config ZMK_PRGB_UG_SAT_START
+    int "Initial underglow saturation (0-100)"
+    range 0 100
+    default 100
+
+config ZMK_PRGB_KEY_HUE_START
+    int "Initial key hue (0-359)"
+    range 0 359
+    default 0
+
+config ZMK_PRGB_KEY_SAT_START
+    int "Initial key saturation (0-100); 0 = white"
+    range 0 100
+    default 0
+
+config ZMK_PRGB_EFF_START
+    int "Initial effect: 0 static, 1 breathe, 2 reactive, 3 ripple, 4 rainbow"
+    range 0 4
+    default 0
+
+config ZMK_PRGB_SPD_START
+    int "Initial animation speed (1-5)"
+    range 1 5
+    default 3
+
+config ZMK_PRGB_ON_START
+    bool "Lighting on at first boot (before any saved state)"
+    default y
+
+config ZMK_PRGB_FADE_MS
+    int "Reactive fade-out time in ms at speed 3 (scales inversely with speed)"
+    range 50 10000
+    default 1000
+
+config ZMK_PRGB_BG_START
+    int "Reactive/ripple background in percent of the brightness (0 = keys dark)"
+    range 0 100
+    default 0
+    help
+      What the keys rest at between presses in the reactive and ripple effects: a dim
+      tint of the accent (underglow) colour, so a pressed key fades out in one colour.
+      Initial value only; &prgb PRGB_BG_NEXT steps through 0, 5, 10, 15, 25 and is saved.
+
+config ZMK_PRGB_FPS
+    int "Animation frame rate (the timer only runs while something animates)"
+    range 5 100
+    default 40
+
+config ZMK_PRGB_AUTO_OFF_IDLE
+    bool "Turn the LEDs off while the keyboard (this half) is idle"
+    default y
+
+endif # ZMK_PRGB

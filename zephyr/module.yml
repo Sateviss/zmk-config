@@ -1,0 +1,9 @@
+# This config repo is also a Zephyr/ZMK module: it provides the per-key RGB
+# lighting (src/, dts/, include/, Kconfig). ZMK's build-user-config workflow
+# passes the repo root as -DZMK_EXTRA_MODULES when this file exists.
+name: zmk-config-prgb
+build:
+  cmake: .
+  kconfig: Kconfig
+  settings:
+    dts_root: .
