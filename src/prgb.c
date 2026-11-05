@@ -61,6 +61,10 @@ BUILD_ASSERT(PRGB_KEY_LEDS <= 32, "Key state is kept in 32-bit masks");
 #define RIPPLES 4
 #define RIPPLE_WIDTH 18 /* ring thickness, in QMK grid units (a key is ~14-15) */
 
+#define HEAT_MAX 4096           /* fixed-point heat of a key: 0 cold .. HEAT_MAX red hot */
+#define HEAT_HIT (HEAT_MAX / 3) /* a press: three quick presses make a key red */
+#define HEAT_SPREAD 24          /* neighbours closer than this (grid units) warm a little */
+
 #define STATE_VERSION 2
 
 struct prgb_state {
@@ -113,6 +117,11 @@ static atomic_t pressed;
 static uint32_t released_ms[PRGB_KEY_LEDS];
 static struct ripple ripples[RIPPLES];
 static uint8_t next_ripple;
+
+/* Heatmap: presses since the last frame (set by the event, taken by the renderer). */
+static atomic_t heat_hits;
+static uint16_t heat[PRGB_KEY_LEDS];
+static uint32_t heat_ms;
 
 static struct k_work_delayable render_work;
 
@@ -284,6 +293,60 @@ static bool render_rainbow(uint32_t now, uint8_t val) {
     return true;
 }
 
+/* Keys: each press warms the key by a third (and keys within HEAT_SPREAD a little), and
+ * heat runs from blue through green to red. Full heat cools off in 6 x the fade time (a
+ * single press in 2 x). Cold keys show the background, as in Reactive. */
+static bool render_heatmap(uint32_t now, uint8_t val) {
+    struct led_rgb accent = hsv_to_rgb(state.ug.h, state.ug.s, val);
+    uint32_t cool = 6 * fade_ms();
+    uint32_t elapsed = MIN(now - heat_ms, cool);
+    uint32_t dec = elapsed * HEAT_MAX / cool;
+    uint32_t hits = atomic_set(&heat_hits, 0);
+    uint32_t bg = MIN(state.bg, 100) * 256 / 100;
+    bool animating = false;
+
+    /* advance the clock only by the time used, so short frames don't lose cooling */
+    heat_ms = elapsed == cool ? now : heat_ms + dec * cool / HEAT_MAX;
+
+    for (int k = 0; k < PRGB_KEY_LEDS; k++) {
+        heat[k] = heat[k] > dec ? heat[k] - dec : 0;
+    }
+
+    for (int j = 0; hits; j++, hits >>= 1) {
+        if (!(hits & 1) || j >= PRGB_KEY_LEDS) {
+            continue;
+        }
+        for (int k = 0; k < PRGB_KEY_LEDS; k++) {
+            int dx = (int)prgb_key_leds[k].x - prgb_key_leds[j].x;
+            int dy = (int)prgb_key_leds[k].y - prgb_key_leds[j].y;
+            uint32_t d = isqrt(dx * dx + dy * dy);
+            uint32_t add = 0;
+
+            if (k == j) {
+                add = HEAT_HIT;
+            } else if (d < HEAT_SPREAD) {
+                add = HEAT_HIT / 4 * (HEAT_SPREAD - d) / HEAT_SPREAD;
+            }
+            heat[k] = MIN(heat[k] + add, HEAT_MAX);
+        }
+    }
+
+    fill(0, UG_LEDS, accent);
+    for (int k = 0; k < PRGB_KEY_LEDS; k++) {
+        if (!heat[k]) {
+            pixels[UG_LEDS + k] = fade_accent(accent, state.bg, 0);
+            continue;
+        }
+        animating = true;
+        /* hue 240 (blue) -> 0 (red); brightness rises fast from the background */
+        uint32_t h = 240 - heat[k] * 240 / HEAT_MAX;
+        uint32_t ramp = MIN(heat[k] * 8, HEAT_MAX);
+        uint32_t v = val * (bg + (256 - bg) * ramp / HEAT_MAX) / 256;
+        pixels[UG_LEDS + k] = hsv_to_rgb(h, PRGB_SAT_MAX, v);
+    }
+    return animating;
+}
+
 static void render_handler(struct k_work *work) {
     uint32_t now = k_uptime_get_32();
     bool animating = false;
@@ -308,6 +371,9 @@ static void render_handler(struct k_work *work) {
             break;
         case PRGB_EFF_RAINBOW:
             animating = render_rainbow(now, val);
+            break;
+        case PRGB_EFF_HEATMAP:
+            animating = render_heatmap(now, val);
             break;
         case PRGB_EFF_STATIC:
         default:
@@ -405,7 +471,16 @@ static int prgb_settings_set(const char *name, size_t len, settings_read_cb read
     if (settings_name_steq(name, "state", &next) && !next) {
         struct prgb_state loaded;
 
-        if (read_state(len, read_cb, cb_arg, &loaded) < 0 || !state_valid(&loaded)) {
+        if (read_state(len, read_cb, cb_arg, &loaded) < 0) {
+            LOG_WRN("Ignoring saved lighting state (unknown format)");
+            return 0;
+        }
+        /* An effect this firmware doesn't have (saved by a newer one): keep the rest. */
+        if (loaded.effect >= PRGB_EFF_COUNT) {
+            LOG_WRN("Saved effect %d unknown, using static", loaded.effect);
+            loaded.effect = PRGB_EFF_STATIC;
+        }
+        if (!state_valid(&loaded)) {
             LOG_WRN("Ignoring saved lighting state (old format or out of range)");
             return 0;
         }
@@ -539,8 +614,13 @@ static void on_position(const struct zmk_position_state_changed *ev) {
         atomic_clear_bit(&pressed, k);
     }
 
+    if (ev->state && state.effect == PRGB_EFF_HEATMAP) {
+        atomic_set_bit(&heat_hits, k);
+    }
+
     if (state.on && awake &&
-        (state.effect == PRGB_EFF_REACTIVE || state.effect == PRGB_EFF_RIPPLE)) {
+        (state.effect == PRGB_EFF_REACTIVE || state.effect == PRGB_EFF_RIPPLE ||
+         state.effect == PRGB_EFF_HEATMAP)) {
         kick();
     }
 }
@@ -603,6 +683,7 @@ static int prgb_init(void) {
         key_for_position[prgb_key_leds[k].position] = k;
         released_ms[k] = now - LONG_AGO_MS;
     }
+    heat_ms = now;
     for (int r = 0; r < RIPPLES; r++) {
         ripples[r].start_ms = now - LONG_AGO_MS;
     }
