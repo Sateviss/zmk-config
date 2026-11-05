@@ -80,9 +80,9 @@
 // ------------------------------------------------------------------------------------------------------------
 // RGB: UG = underglow zone (also the reactive accent colour), KEY = per-key zone.
 // BGLVL = reactive/ripple background (dim accent tint): 0 -> 5 -> 10 -> 15 -> 25% -> 0.
-// RGBMAP = layer key map on/off (keys show their binding type on this layer and Extra,
-// BT0-3 their profile state, OUTTG the endpoint; underglow tinted). PULSE = underglow
-// flashes on key presses on/off.
+// RGBMAP = layer key map on/off (keys show their binding type on this layer, BT0-3 their
+// profile state, OUTTG the endpoint; underglow tinted; on Extra the unbound keys keep
+// the base layer's lighting). PULSE = underglow flashes on key presses on/off.
 // Key map colours on this layer: brightness/BGLVL yellow, saturation purple, hue keys
 // cycle the rainbow, effect green, speed cyan, toggles pink, BT/out blue (or status),
 // system red, layer keys orange, plain keys white. The unbound keys flash the new colour
