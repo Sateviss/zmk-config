@@ -45,3 +45,14 @@ int prgb_set_color(enum prgb_zone zone, struct prgb_hs color);
 /* Reactive/ripple background level, in % of the brightness (0 = keys dark at rest). */
 int prgb_calc_bg_next(void);
 int prgb_set_bg(int bg);
+
+/* Layer key map (and the Bluetooth/output status shown in it) on/off. */
+bool prgb_map_enabled(void);
+int prgb_set_map(bool on);
+
+/* Underglow pulse on key presses on/off. */
+bool prgb_pulse_enabled(void);
+int prgb_set_pulse(bool on);
+
+/* Peripheral: one indicator plane relayed by the central (see prgb_ind.h). */
+int prgb_relay_receive(uint32_t param1, uint32_t value);

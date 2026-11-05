@@ -13,6 +13,12 @@
  * Frames are rendered on ZMK's low priority work queue by a delayable work item that
  * only re-arms itself while something is animating; static output is written once.
  *
+ * Indicators (see prgb_ind.h) are drawn over the effect: the layer key map replaces it
+ * while a layer above the default one is active, held modifiers and caps lock light
+ * their keys on any layer, and the underglow pulses on key presses. The central works
+ * them out from the keymap, layer, HID and BLE state on the same work queue and relays
+ * the peripheral's part as &prgb commands; the peripheral only decodes and draws them.
+ *
  * SPDX-License-Identifier: MIT
  */
 
@@ -28,6 +34,7 @@
 #include <zephyr/sys/util.h>
 
 #include <zmk/activity.h>
+#include <zmk/behavior.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/activity_state_changed.h>
 #include <zmk/events/position_state_changed.h>
@@ -36,7 +43,48 @@
 #include <dt-bindings/prgb.h>
 
 #include "prgb.h"
+#include "prgb_ind.h"
 #include "aurora_lily58_leds.h"
+
+/* The half that has the keymap, layers, HID and BLE state (or a unibody board). */
+#define IND_CENTRAL (!IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL))
+/* The central relays the peripheral's indicators to it through &prgb. */
+#define IND_RELAY                                                                                  \
+    (IS_ENABLED(CONFIG_ZMK_SPLIT) && IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) &&                  \
+     DT_HAS_COMPAT_STATUS_OKAY(zmk_behavior_prgb))
+
+#if IND_CENTRAL
+#include <zmk/endpoints.h>
+#include <zmk/hid.h>
+#include <zmk/keymap.h>
+#include <zmk/matrix.h>
+#include <zmk/events/endpoint_changed.h>
+#include <zmk/events/keycode_state_changed.h>
+#include <zmk/events/layer_state_changed.h>
+#if IS_ENABLED(CONFIG_ZMK_BLE)
+#include <zmk/ble.h>
+#include <zmk/events/ble_active_profile_changed.h>
+#endif
+#if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
+#include <zmk/hid_indicators.h>
+#include <zmk/events/hid_indicators_changed.h>
+#endif
+#endif /* IND_CENTRAL */
+
+#if IND_RELAY
+#include <zmk/split/central.h>
+#endif
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE) && IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) && IND_RELAY
+#include <zephyr/bluetooth/conn.h>
+#define IND_RESYNC_ON_CONNECT 1
+#else
+#define IND_RESYNC_ON_CONNECT 0
+#endif
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT) && !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+#include <zmk/events/split_peripheral_status_changed.h>
+#endif
 
 LOG_MODULE_REGISTER(prgb, CONFIG_ZMK_LOG_LEVEL);
 
@@ -65,7 +113,18 @@ BUILD_ASSERT(PRGB_KEY_LEDS <= 32, "Key state is kept in 32-bit masks");
 #define HEAT_HIT (HEAT_MAX / 3) /* a press: three quick presses make a key red */
 #define HEAT_SPREAD 24          /* neighbours closer than this (grid units) warm a little */
 
-#define STATE_VERSION 2
+/* Underglow pulse: level the underglow rests at between presses, in % of its own */
+#define PULSE_REST_PCT 50
+/* Bluetooth "advertising" keys breathe between 25% and 100% once per this many ms */
+#define IND_BLINK_MS 1200
+/* Hue keys in the layer key map run once round the colour wheel per this many ms */
+#define IND_HUE_CYCLE_MS 3000
+/* Changing a colour, saturation, brightness or background level while the key map is
+ * shown flashes the keys bound to nothing in the result for this long */
+#define IND_FLASH_MS 900
+#define IND_FLASH_HOLD_MS 300 /* at full before it starts fading */
+
+#define STATE_VERSION 3
 
 struct prgb_state {
     uint8_t version;
@@ -75,7 +134,23 @@ struct prgb_state {
     uint8_t spd;
     struct prgb_hs ug;
     struct prgb_hs key;
-    uint8_t bg; /* reactive/ripple background, % of the brightness (0 = keys dark) */
+    uint8_t bg;  /* reactive/ripple background, % of the brightness (0 = keys dark) */
+    uint8_t map;   /* layer key map on (v3; bytes, so a bad saved value can be checked) */
+    uint8_t pulse; /* underglow pulse on key presses on (v3) */
+};
+
+/* Saved by the second version (no indicator toggles); migrated on load. */
+#define STATE_VERSION_2 2
+
+struct prgb_state_v2 {
+    uint8_t version;
+    bool on;
+    uint8_t effect;
+    uint8_t brt;
+    uint8_t spd;
+    struct prgb_hs ug;
+    struct prgb_hs key;
+    uint8_t bg;
 };
 
 /* Saved by the first version (no background level); migrated on load. */
@@ -91,7 +166,9 @@ struct prgb_state_v1 {
     struct prgb_hs key;
 };
 
-BUILD_ASSERT(sizeof(struct prgb_state) != sizeof(struct prgb_state_v1),
+BUILD_ASSERT(sizeof(struct prgb_state) != sizeof(struct prgb_state_v1) &&
+                 sizeof(struct prgb_state) != sizeof(struct prgb_state_v2) &&
+                 sizeof(struct prgb_state_v2) != sizeof(struct prgb_state_v1),
              "Saved state formats must be told apart by size");
 
 /* Background levels PRGB_BG_NEXT steps through, in % of the brightness. */
@@ -123,7 +200,36 @@ static atomic_t heat_hits;
 static uint16_t heat[PRGB_KEY_LEDS];
 static uint32_t heat_ms;
 
+/* Underglow pulse: when this half's last key press was. */
+static uint32_t pulse_ms;
+
+/* Key map flash: when a colour setting last changed (on this half) and what to show. */
+static bool flash_on;
+static uint32_t flash_ms;
+static struct prgb_hs flash_color;
+static uint8_t flash_pct; /* % of the brightness */
+
+/*
+ * This half's indicator planes (prgb_ind.h): bit n is this half's n-th key position in
+ * ascending order. Written by the central's indicator work or, on the peripheral, by
+ * the relay; read by the renderer. Each plane is one word, written whole.
+ */
+static uint32_t ind_planes[PRGB_IND_PLANES];
+/* Per-key LED: its bit in the planes. */
+static uint8_t led_bit[PRGB_KEY_LEDS];
+/* Key positions on this half (bit per position). */
+static uint64_t own_positions;
+
+#if IND_CENTRAL
+static struct k_work ind_work;
+/* Bluetooth/output status colour per key LED while the key map is shown (pct 0 = none) */
+static struct prgb_ind_color conn_colors[PRGB_KEY_LEDS];
+#endif
+
 static struct k_work_delayable render_work;
+
+/* Work the indicators out again (central) after something they depend on changed. */
+static void ind_update(void);
 
 #if IS_ENABLED(CONFIG_SETTINGS)
 static struct k_work_delayable save_work;
@@ -347,6 +453,126 @@ static bool render_heatmap(uint32_t now, uint8_t val) {
     return animating;
 }
 
+/* ---- indicators ---------------------------------------------------------------------- */
+
+/* An indicator colour at pct % of val; a pulsing one breathes between 25% and 100%. */
+static struct led_rgb ind_rgb(struct prgb_ind_color c, uint8_t val, uint32_t now,
+                              bool *animating) {
+    uint32_t v = val * c.pct / 100;
+
+    if (c.pulse) {
+        uint32_t phase = (now % IND_BLINK_MS) * 512 / IND_BLINK_MS; /* 0-511 */
+        uint32_t tri = phase < 256 ? phase : 511 - phase;          /* 0-255-0 */
+
+        v = v * (64 + tri * 192 / 255) / 256;
+        *animating = true;
+    }
+    return hsv_to_rgb(c.h, c.s, v);
+}
+
+/* The info (prgb_ind.h) of key LED k. */
+static uint8_t ind_info(int k) { return prgb_ind_unpack(ind_planes, led_bit[k]); }
+
+/* Flash level (0-256) of the keys bound to nothing: full for IND_FLASH_HOLD_MS after a
+ * colour setting changed, then easing out by IND_FLASH_MS. */
+static uint32_t flash_level(uint32_t now, bool *animating) {
+    uint32_t age = now - flash_ms;
+
+    if (!flash_on || age >= IND_FLASH_MS) {
+        flash_on = false;
+        return 0;
+    }
+    *animating = true;
+    if (age < IND_FLASH_HOLD_MS) {
+        return 256;
+    }
+    uint32_t r = 256 - (age - IND_FLASH_HOLD_MS) * 256 / (IND_FLASH_MS - IND_FLASH_HOLD_MS);
+    return r * r / 256; /* ease out */
+}
+
+/* Layer key map: keys by binding class (Bluetooth/output keys by status, hue keys round
+ * the colour wheel, unbound keys flashing a colour that was just changed), underglow in
+ * the layer's tint. Replaces the effect. Returns the underglow's full colour. */
+static struct led_rgb render_map(uint32_t now, uint8_t val, uint32_t header, bool *animating) {
+    struct led_rgb tint =
+        ind_rgb(prgb_ind_layer_tint(PRGB_IND_HEADER_LAYER(header)), val, now, animating);
+    uint32_t flash = flash_level(now, animating);
+    struct led_rgb flash_rgb =
+        hsv_to_rgb(flash_color.h, flash_color.s, val * flash_pct / 100 * flash / 256);
+
+    fill(0, UG_LEDS, tint);
+    for (int k = 0; k < PRGB_KEY_LEDS; k++) {
+        uint8_t cls = ind_info(k) & PRGB_IND_CLASS_MASK;
+        struct prgb_ind_color c =
+            prgb_ind_class_colors[cls < PRGB_IND_CLASSES ? cls : PRGB_IND_KEY];
+
+        if (cls == PRGB_IND_LIGHT_HUE) {
+            c.h = (c.h + (now % IND_HUE_CYCLE_MS) * PRGB_HUE_MAX / IND_HUE_CYCLE_MS) %
+                  PRGB_HUE_MAX;
+            *animating = true;
+        }
+#if IND_CENTRAL
+        if (conn_colors[k].pct) {
+            c = conn_colors[k];
+        }
+#endif
+        if (cls == PRGB_IND_NONE && !c.pct) {
+            pixels[UG_LEDS + k] = flash_rgb;
+            continue;
+        }
+        pixels[UG_LEDS + k] = ind_rgb(c, val, now, animating);
+    }
+    return tint;
+}
+
+/* Held modifiers and caps lock light their keys over whatever is drawn. */
+static void render_mods_caps(uint32_t now, uint8_t val) {
+    bool unused;
+
+    if (!ind_planes[PRGB_IND_PLANE_MOD] && !ind_planes[PRGB_IND_PLANE_CAPS]) {
+        return;
+    }
+    for (int k = 0; k < PRGB_KEY_LEDS; k++) {
+        uint8_t info = ind_info(k);
+
+        if (info & PRGB_IND_CAPS) {
+            pixels[UG_LEDS + k] = ind_rgb(prgb_ind_caps_color, val, now, &unused);
+        } else if (info & PRGB_IND_MOD) {
+            pixels[UG_LEDS + k] = ind_rgb(prgb_ind_mod_color, val, now, &unused);
+        }
+    }
+}
+
+static uint32_t pulse_len_ms(void) { return CONFIG_ZMK_PRGB_PULSE_MS * 8 / (state.spd + 5); }
+
+/*
+ * Underglow pulse: the underglow rests at PULSE_REST_PCT of what the effect drew and
+ * jumps to its full colour (`full`) on a key press, easing back out over pulse_len_ms()
+ * (400 ms at speed 3, 530-320 ms over speeds 1-5). Stays within the brightness: full is
+ * the colour at the current brightness.
+ */
+static bool render_pulse(uint32_t now, struct led_rgb full) {
+    uint32_t len = pulse_len_ms();
+    uint32_t age = now - pulse_ms;
+    uint32_t p = 0; /* 0-256 */
+
+    if (age < len) {
+        uint32_t r = 256 - age * 256 / len;
+        p = r * r / 256; /* ease out */
+    }
+
+    for (int i = 0; i < UG_LEDS; i++) {
+        uint8_t *px[3] = {&pixels[i].r, &pixels[i].g, &pixels[i].b};
+        uint8_t to[3] = {full.r, full.g, full.b};
+
+        for (int c = 0; c < 3; c++) {
+            int32_t rest = *px[c] * PULSE_REST_PCT / 100;
+            *px[c] = rest + ((int32_t)to[c] - rest) * (int32_t)p / 256;
+        }
+    }
+    return age < len;
+}
+
 static void render_handler(struct k_work *work) {
     uint32_t now = k_uptime_get_32();
     bool animating = false;
@@ -355,31 +581,43 @@ static void render_handler(struct k_work *work) {
         memset(pixels, 0, sizeof(pixels));
     } else {
         uint8_t val = state.brt * CONFIG_ZMK_PRGB_BRT_MAX * 255 / (PRGB_BRT_MAX * 100);
+        uint32_t header = ind_planes[PRGB_IND_PLANE_HEADER];
+        struct led_rgb ug_full = hsv_to_rgb(state.ug.h, state.ug.s, val);
 
         /* LEDs past the underglow + key zones (if the chain is longer) stay dark */
         memset(pixels, 0, sizeof(pixels));
 
-        switch (state.effect) {
-        case PRGB_EFF_BREATHE:
-            animating = render_breathe(now, val);
-            break;
-        case PRGB_EFF_REACTIVE:
-            animating = render_reactive(now, val, false);
-            break;
-        case PRGB_EFF_RIPPLE:
-            animating = render_reactive(now, val, true);
-            break;
-        case PRGB_EFF_RAINBOW:
-            animating = render_rainbow(now, val);
-            break;
-        case PRGB_EFF_HEATMAP:
-            animating = render_heatmap(now, val);
-            break;
-        case PRGB_EFF_STATIC:
-        default:
-            fill(0, UG_LEDS, hsv_to_rgb(state.ug.h, state.ug.s, val));
-            fill(UG_LEDS, PRGB_KEY_LEDS, hsv_to_rgb(state.key.h, state.key.s, val));
-            break;
+        if (PRGB_IND_HEADER_SHOWN(header)) {
+            ug_full = render_map(now, val, header, &animating);
+        } else {
+            switch (state.effect) {
+            case PRGB_EFF_BREATHE:
+                animating = render_breathe(now, val);
+                break;
+            case PRGB_EFF_REACTIVE:
+                animating = render_reactive(now, val, false);
+                break;
+            case PRGB_EFF_RIPPLE:
+                animating = render_reactive(now, val, true);
+                break;
+            case PRGB_EFF_RAINBOW:
+                animating = render_rainbow(now, val);
+                break;
+            case PRGB_EFF_HEATMAP:
+                animating = render_heatmap(now, val);
+                break;
+            case PRGB_EFF_STATIC:
+            default:
+                fill(0, UG_LEDS, hsv_to_rgb(state.ug.h, state.ug.s, val));
+                fill(UG_LEDS, PRGB_KEY_LEDS, hsv_to_rgb(state.key.h, state.key.s, val));
+                break;
+            }
+        }
+
+        render_mods_caps(now, val);
+
+        if (state.pulse && render_pulse(now, ug_full)) {
+            animating = true;
         }
     }
 
@@ -425,10 +663,13 @@ static bool state_valid(const struct prgb_state *s) {
     return s->version == STATE_VERSION && s->effect < PRGB_EFF_COUNT &&
            s->brt <= PRGB_BRT_MAX && s->spd >= PRGB_SPD_MIN && s->spd <= PRGB_SPD_MAX &&
            s->ug.h < PRGB_HUE_MAX && s->ug.s <= PRGB_SAT_MAX && s->key.h < PRGB_HUE_MAX &&
-           s->key.s <= PRGB_SAT_MAX && s->bg <= PRGB_BG_MAX;
+           s->key.s <= PRGB_SAT_MAX && s->bg <= PRGB_BG_MAX && s->map <= 1 && s->pulse <= 1;
 }
 
-/* Read the saved state, upgrading the first version (same fields minus bg). */
+/*
+ * Read the saved state, upgrading older versions: v1 (no bg) and v2 (no indicator
+ * toggles) get the new fields' initial values. Formats are told apart by size.
+ */
 static int read_state(size_t len, settings_read_cb read_cb, void *cb_arg,
                       struct prgb_state *out) {
     int rc;
@@ -436,6 +677,31 @@ static int read_state(size_t len, settings_read_cb read_cb, void *cb_arg,
     if (len == sizeof(*out)) {
         rc = read_cb(cb_arg, out, sizeof(*out));
         return rc < 0 ? rc : 0;
+    }
+
+    if (len == sizeof(struct prgb_state_v2)) {
+        struct prgb_state_v2 v2;
+
+        rc = read_cb(cb_arg, &v2, sizeof(v2));
+        if (rc < 0) {
+            return rc;
+        }
+        if (v2.version != STATE_VERSION_2) {
+            return -EINVAL;
+        }
+        *out = (struct prgb_state){
+            .version = STATE_VERSION,
+            .on = v2.on,
+            .effect = v2.effect,
+            .brt = v2.brt,
+            .spd = v2.spd,
+            .ug = v2.ug,
+            .key = v2.key,
+            .bg = v2.bg,
+            .map = IS_ENABLED(CONFIG_ZMK_PRGB_MAP_START),
+            .pulse = IS_ENABLED(CONFIG_ZMK_PRGB_PULSE_START),
+        };
+        return 0;
     }
 
     if (len == sizeof(struct prgb_state_v1)) {
@@ -457,6 +723,8 @@ static int read_state(size_t len, settings_read_cb read_cb, void *cb_arg,
             .ug = v1.ug,
             .key = v1.key,
             .bg = CONFIG_ZMK_PRGB_BG_START,
+            .map = IS_ENABLED(CONFIG_ZMK_PRGB_MAP_START),
+            .pulse = IS_ENABLED(CONFIG_ZMK_PRGB_PULSE_START),
         };
         return 0;
     }
@@ -487,6 +755,7 @@ static int prgb_settings_set(const char *name, size_t len, settings_read_cb read
 
         state = loaded;
         anim_start_ms = k_uptime_get_32();
+        ind_update();
         kick();
         return 0;
     }
@@ -502,6 +771,16 @@ SETTINGS_STATIC_HANDLER_DEFINE(prgb, "prgb", NULL, prgb_settings_set, NULL, NULL
 static int changed(void) {
     kick();
     return save_state();
+}
+
+/* Show a colour that was just set on the keys bound to nothing in the key map (if it is
+ * shown: otherwise the effect itself shows the change). Runs on both halves, as the
+ * setting does. */
+static void flash(struct prgb_hs color, uint8_t pct) {
+    flash_color = color;
+    flash_pct = pct;
+    flash_ms = k_uptime_get_32();
+    flash_on = true;
 }
 
 bool prgb_is_on(void) { return state.on; }
@@ -534,6 +813,7 @@ int prgb_set_brt(int brt) {
         return -EINVAL;
     }
     state.brt = brt;
+    flash(state.key, 100);
     return changed();
 }
 
@@ -567,6 +847,7 @@ int prgb_set_color(enum prgb_zone zone, struct prgb_hs color) {
     } else {
         state.key = color;
     }
+    flash(color, 100);
     return changed();
 }
 
@@ -584,8 +865,286 @@ int prgb_set_bg(int bg) {
         return -EINVAL;
     }
     state.bg = bg;
+    /* The background is a dim tint of the accent (underglow) colour: show it at its level,
+     * but visibly (a 0% background flashes the accent faintly) */
+    flash(state.ug, MAX(bg, 5));
     return changed();
 }
+
+bool prgb_map_enabled(void) { return state.map != 0; }
+
+int prgb_set_map(bool on) {
+    state.map = on;
+    ind_update();
+    return changed();
+}
+
+bool prgb_pulse_enabled(void) { return state.pulse != 0; }
+
+int prgb_set_pulse(bool on) {
+    state.pulse = on;
+    return changed();
+}
+
+int prgb_relay_receive(uint32_t param1, uint32_t value) {
+#if IND_CENTRAL
+    /* Only the central sends these; it works its own indicators out itself. */
+    return 0;
+#else
+    int plane = prgb_ind_relay_plane(param1);
+
+    if (plane < 0) {
+        return -EINVAL;
+    }
+    /* Called from the Bluetooth thread: one word store, the renderer runs on its queue */
+    ind_planes[plane] = value;
+    kick();
+    return 0;
+#endif
+}
+
+/* ---- indicators: central --------------------------------------------------------------- */
+
+#if IND_CENTRAL
+
+/* HID LED report bit of caps lock (usage 0x02 of the LED page, bit 1). */
+#define HID_LED_CAPS_LOCK BIT(1)
+
+static bool keymap_binding(void *ctx, uint8_t layer, uint8_t position,
+                           struct prgb_ind_binding *out) {
+    const struct zmk_behavior_binding *b = zmk_keymap_get_layer_binding_at_idx(layer, position);
+
+    if (!b || !b->behavior_dev) {
+        return false;
+    }
+    *out = (struct prgb_ind_binding){
+        .dev = b->behavior_dev, .param1 = b->param1, .param2 = b->param2};
+    return true;
+}
+
+static bool caps_lock_on(void) {
+#if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
+    return zmk_hid_indicators_get_current_profile() & HID_LED_CAPS_LOCK;
+#else
+    return false;
+#endif
+}
+
+static struct prgb_ind_conn conn_state(void) {
+    struct prgb_ind_conn c = {.active = -1};
+
+#if IS_ENABLED(CONFIG_ZMK_BLE)
+    c.active = zmk_ble_active_profile_index();
+    c.profiles = MIN(ZMK_BLE_PROFILE_COUNT, 8);
+    for (uint8_t n = 0; n < c.profiles; n++) {
+        if (zmk_ble_profile_is_connected(n)) {
+            c.connected |= BIT(n);
+        }
+        if (zmk_ble_profile_is_open(n)) {
+            c.open |= BIT(n);
+        }
+    }
+#endif
+    switch (zmk_endpoint_get_selected().transport) {
+    case ZMK_TRANSPORT_USB:
+        c.transport = PRGB_IND_TRANSPORT_USB;
+        break;
+    case ZMK_TRANSPORT_BLE:
+        c.transport = PRGB_IND_TRANSPORT_BLE;
+        break;
+    default:
+        c.transport = PRGB_IND_TRANSPORT_NONE;
+        break;
+    }
+    return c;
+}
+
+#if IND_RELAY
+
+BUILD_ASSERT(ZMK_KEYMAP_LEN <= 64, "Key positions are kept in a 64-bit mask");
+
+#define PRGB_DEV_NAME DEVICE_DT_NAME(DT_COMPAT_GET_ANY_STATUS_OKAY(zmk_behavior_prgb))
+
+/* What the peripheral was last sent (it starts from all zero after connecting). */
+static uint32_t relay_sent[PRGB_IND_PLANES];
+/* Bit 0: the peripheral disconnected, so it has cleared its planes. */
+static atomic_t relay_reset;
+/* Send every non-zero plane again (in case it was lost while the link came up). */
+static bool relay_force;
+
+static void relay_send(int plane, uint32_t value) {
+    struct zmk_behavior_binding binding = {
+        .behavior_dev = PRGB_DEV_NAME,
+        .param1 = PRGB_IND_RELAY_PARAM1(plane),
+        .param2 = value,
+    };
+    struct zmk_behavior_binding_event event = {
+        .position = 0,
+        .timestamp = k_uptime_get(),
+        .source = ZMK_POSITION_STATE_CHANGE_SOURCE_LOCAL,
+    };
+
+    /* The same path global &prgb commands take to the peripheral; only "pressed". */
+    for (int i = 0; i < ZMK_SPLIT_CENTRAL_PERIPHERAL_COUNT; i++) {
+        int err = zmk_split_central_invoke_behavior(i, &binding, event, true);
+        if (err < 0) {
+            LOG_DBG("Indicator relay to peripheral %d failed (%d)", i, err);
+        }
+    }
+    relay_sent[plane] = value;
+}
+
+/* Send the peripheral the planes that changed: class planes first, the header last, so
+ * the key map is complete when the header turns it on. The class planes don't matter
+ * while it is hidden and are not sent then. */
+static void relay(const uint8_t *info, uint32_t header) {
+    uint64_t all = ZMK_KEYMAP_LEN >= 64 ? UINT64_MAX : (1ULL << ZMK_KEYMAP_LEN) - 1;
+    uint32_t planes[PRGB_IND_PLANES];
+
+    if (atomic_test_and_clear_bit(&relay_reset, 0)) {
+        memset(relay_sent, 0, sizeof(relay_sent));
+    }
+
+    prgb_ind_pack(info, ZMK_KEYMAP_LEN, all & ~own_positions, header, planes);
+
+    for (int p = 0; p < PRGB_IND_PLANES; p++) {
+        bool forced = relay_force && planes[p];
+
+        if (p < PRGB_IND_PLANE_MOD && !PRGB_IND_HEADER_SHOWN(header)) {
+            continue;
+        }
+        if (forced || planes[p] != relay_sent[p]) {
+            relay_send(p, planes[p]);
+        }
+    }
+    relay_force = false;
+}
+
+#endif /* IND_RELAY */
+
+/*
+ * Work out the indicators of both halves from the keymap (as it is now, so ZMK Studio
+ * edits count), the layer, modifier, caps lock and connection state. Runs on the
+ * renderer's work queue, so the planes never change under a frame.
+ */
+static void ind_work_handler(struct k_work *work) {
+    static uint8_t info[ZMK_KEYMAP_LEN]; /* off the work queue's stack */
+    uint8_t active[ZMK_KEYMAP_LAYERS_LEN];
+    uint8_t n_active = 0;
+    zmk_keymap_layer_id_t def = zmk_keymap_layer_default();
+
+    /* Active layers from the top down to the default one, as the keymap resolves keys */
+    for (int idx = ZMK_KEYMAP_LAYERS_LEN - 1; idx >= 0; idx--) {
+        zmk_keymap_layer_id_t id = zmk_keymap_layer_index_to_id(idx);
+
+        if (id == ZMK_KEYMAP_LAYER_ID_INVAL || !zmk_keymap_layer_active(id)) {
+            continue;
+        }
+        active[n_active++] = id;
+        if (id == def) {
+            break;
+        }
+    }
+
+    bool show_map = state.map && n_active && active[0] != def;
+    struct prgb_ind_in in = {
+        .get = keymap_binding,
+        .n_pos = ZMK_KEYMAP_LEN,
+        .active = active,
+        .n_active = n_active,
+        .n_layers = ZMK_KEYMAP_LAYERS_LEN,
+        .show_map = show_map,
+        .mods = zmk_hid_get_explicit_mods(),
+        .caps = caps_lock_on(),
+        .caps_fallback = CONFIG_ZMK_PRGB_CAPS_FALLBACK_POS,
+    };
+    uint32_t header = PRGB_IND_HEADER(show_map, show_map ? active[0] : 0);
+    uint32_t planes[PRGB_IND_PLANES];
+
+    prgb_ind_compute(&in, info);
+    prgb_ind_pack(info, ZMK_KEYMAP_LEN, own_positions, header, planes);
+
+    struct prgb_ind_conn conn = conn_state();
+    for (int k = 0; k < PRGB_KEY_LEDS; k++) {
+        struct prgb_ind_binding b;
+
+        conn_colors[k] = (struct prgb_ind_color){0};
+        if (show_map && keymap_binding(NULL, active[0], prgb_key_leds[k].position, &b)) {
+            conn_colors[k] = prgb_ind_conn_color(&b, &conn);
+        }
+    }
+    memcpy(ind_planes, planes, sizeof(ind_planes));
+
+#if IND_RELAY
+    relay(info, header);
+#endif
+
+    kick();
+}
+
+static void ind_update(void) {
+    if (ready) {
+        k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &ind_work);
+    }
+}
+
+#if IND_RESYNC_ON_CONNECT
+
+/*
+ * The peripheral clears its indicators when the link drops and starts from zero when
+ * it comes back, but messages sent before the link has found the peripheral's
+ * behavior characteristic are dropped. So after the peripheral connects, send it
+ * everything that isn't zero a few times (2, 5 and 10 s after connecting).
+ */
+static struct k_work_delayable resync_work;
+static uint8_t resync_step;
+static const uint16_t resync_delay_ms[] = {2000, 3000, 5000};
+
+static void resync_work_handler(struct k_work *work) {
+    relay_force = true;
+    ind_work_handler(NULL);
+    if (++resync_step < ARRAY_SIZE(resync_delay_ms)) {
+        k_work_schedule_for_queue(zmk_workqueue_lowprio_work_q(), &resync_work,
+                                  K_MSEC(resync_delay_ms[resync_step]));
+    }
+}
+
+/* Connections in the central role are the split peripherals (hosts connect to us). */
+static bool is_split_conn(struct bt_conn *conn) {
+    struct bt_conn_info info;
+
+    return bt_conn_get_info(conn, &info) == 0 && info.role == BT_CONN_ROLE_CENTRAL;
+}
+
+static void split_connected(struct bt_conn *conn, uint8_t err) {
+    if (err || !ready || !is_split_conn(conn)) {
+        return;
+    }
+    atomic_set_bit(&relay_reset, 0);
+    resync_step = 0;
+    k_work_reschedule_for_queue(zmk_workqueue_lowprio_work_q(), &resync_work,
+                                K_MSEC(resync_delay_ms[0]));
+}
+
+static void split_disconnected(struct bt_conn *conn, uint8_t reason) {
+    if (!ready || !is_split_conn(conn)) {
+        return;
+    }
+    atomic_set_bit(&relay_reset, 0);
+}
+
+BT_CONN_CB_DEFINE(prgb_split_conn_cb) = {
+    .connected = split_connected,
+    .disconnected = split_disconnected,
+};
+
+#endif /* IND_RESYNC_ON_CONNECT */
+
+#else /* !IND_CENTRAL */
+
+static void ind_update(void) {}
+
+#endif /* IND_CENTRAL */
 
 /* ---- events ------------------------------------------------------------------------ */
 
@@ -605,6 +1164,7 @@ static void on_position(const struct zmk_position_state_changed *ev) {
     uint32_t now = k_uptime_get_32();
 
     if (ev->state) {
+        pulse_ms = now;
         ripples[next_ripple].key = k;
         ripples[next_ripple].start_ms = now;
         next_ripple = (next_ripple + 1) % RIPPLES;
@@ -620,7 +1180,8 @@ static void on_position(const struct zmk_position_state_changed *ev) {
 
     if (state.on && awake &&
         (state.effect == PRGB_EFF_REACTIVE || state.effect == PRGB_EFF_RIPPLE ||
-         state.effect == PRGB_EFF_HEATMAP)) {
+         state.effect == PRGB_EFF_HEATMAP ||
+         (ev->state && state.pulse))) {
         kick();
     }
 }
@@ -631,6 +1192,43 @@ static int prgb_event_listener(const zmk_event_t *eh) {
         on_position(pos);
         return ZMK_EV_EVENT_BUBBLE;
     }
+
+#if IND_CENTRAL
+    /* Modifiers change with modifier key codes (the HID state is updated by the time the
+     * indicator work runs); everything else here may change what the indicators show. */
+    const struct zmk_keycode_state_changed *kc = as_zmk_keycode_state_changed(eh);
+    if (kc) {
+        if (kc->usage_page == PRGB_IND_USAGE_KEY_PAGE &&
+            kc->keycode >= PRGB_IND_USAGE_LCTRL && kc->keycode <= PRGB_IND_USAGE_LCTRL + 7) {
+            ind_update();
+        }
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+    if (as_zmk_layer_state_changed(eh) || as_zmk_endpoint_changed(eh)
+#if IS_ENABLED(CONFIG_ZMK_BLE)
+        || as_zmk_ble_active_profile_changed(eh)
+#endif
+#if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
+        || as_zmk_hid_indicators_changed(eh)
+#endif
+    ) {
+        ind_update();
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+#endif /* IND_CENTRAL */
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT) && !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    /* Lost the central: drop what it relayed (it resends after reconnecting). */
+    const struct zmk_split_peripheral_status_changed *st =
+        as_zmk_split_peripheral_status_changed(eh);
+    if (st) {
+        if (!st->connected) {
+            memset(ind_planes, 0, sizeof(ind_planes));
+            kick();
+        }
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+#endif
 
 #if IS_ENABLED(CONFIG_ZMK_PRGB_AUTO_OFF_IDLE)
     const struct zmk_activity_state_changed *act = as_zmk_activity_state_changed(eh);
@@ -650,6 +1248,20 @@ static int prgb_event_listener(const zmk_event_t *eh) {
 
 ZMK_LISTENER(prgb, prgb_event_listener);
 ZMK_SUBSCRIPTION(prgb, zmk_position_state_changed);
+#if IND_CENTRAL
+ZMK_SUBSCRIPTION(prgb, zmk_keycode_state_changed);
+ZMK_SUBSCRIPTION(prgb, zmk_layer_state_changed);
+ZMK_SUBSCRIPTION(prgb, zmk_endpoint_changed);
+#if IS_ENABLED(CONFIG_ZMK_BLE)
+ZMK_SUBSCRIPTION(prgb, zmk_ble_active_profile_changed);
+#endif
+#if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
+ZMK_SUBSCRIPTION(prgb, zmk_hid_indicators_changed);
+#endif
+#endif /* IND_CENTRAL */
+#if IS_ENABLED(CONFIG_ZMK_SPLIT) && !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+ZMK_SUBSCRIPTION(prgb, zmk_split_peripheral_status_changed);
+#endif
 #if IS_ENABLED(CONFIG_ZMK_PRGB_AUTO_OFF_IDLE)
 ZMK_SUBSCRIPTION(prgb, zmk_activity_state_changed);
 #endif
@@ -671,6 +1283,8 @@ static int prgb_init(void) {
         .ug = {.h = CONFIG_ZMK_PRGB_UG_HUE_START, .s = CONFIG_ZMK_PRGB_UG_SAT_START},
         .key = {.h = CONFIG_ZMK_PRGB_KEY_HUE_START, .s = CONFIG_ZMK_PRGB_KEY_SAT_START},
         .bg = CONFIG_ZMK_PRGB_BG_START,
+        .map = IS_ENABLED(CONFIG_ZMK_PRGB_MAP_START),
+        .pulse = IS_ENABLED(CONFIG_ZMK_PRGB_PULSE_START),
     };
 
     uint32_t now = k_uptime_get_32();
@@ -681,19 +1295,34 @@ static int prgb_init(void) {
     }
     for (int k = 0; k < PRGB_KEY_LEDS; k++) {
         key_for_position[prgb_key_leds[k].position] = k;
+        own_positions |= 1ULL << prgb_key_leds[k].position;
         released_ms[k] = now - LONG_AGO_MS;
     }
+    /* Indicator plane bit of each LED: its position's rank among this half's positions */
+    for (int k = 0; k < PRGB_KEY_LEDS; k++) {
+        uint64_t below = own_positions & ((1ULL << prgb_key_leds[k].position) - 1);
+
+        led_bit[k] = __builtin_popcountll(below);
+    }
+    pulse_ms = now - LONG_AGO_MS;
     heat_ms = now;
     for (int r = 0; r < RIPPLES; r++) {
         ripples[r].start_ms = now - LONG_AGO_MS;
     }
 
     k_work_init_delayable(&render_work, render_handler);
+#if IND_CENTRAL
+    k_work_init(&ind_work, ind_work_handler);
+#endif
+#if IND_RESYNC_ON_CONNECT
+    k_work_init_delayable(&resync_work, resync_work_handler);
+#endif
 #if IS_ENABLED(CONFIG_SETTINGS)
     k_work_init_delayable(&save_work, save_work_handler);
 #endif
 
     ready = true;
+    ind_update();
     kick();
     return 0;
 }

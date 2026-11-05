@@ -101,6 +101,35 @@ config ZMK_PRGB_FPS
     range 5 100
     default 40
 
+config ZMK_PRGB_MAP_START
+    bool "Layer key map on at first boot (before any saved state)"
+    default y
+    help
+      While a layer above the default one is active, the keys show what is bound to them
+      on that layer, by binding type, and the underglow takes the layer's tint (see
+      src/prgb_ind.h). Toggled with &prgb PRGB_MAP_TOG and saved.
+
+config ZMK_PRGB_PULSE_START
+    bool "Underglow pulse on at first boot (before any saved state)"
+    default y
+    help
+      The underglow rests at half its level and flashes up to full on every key press
+      of that half, in every effect. Toggled with &prgb PRGB_PULSE_TOG and saved.
+
+config ZMK_PRGB_PULSE_MS
+    int "Underglow pulse length in ms at speed 3 (530-320 ms over speeds 1-5 at 400)"
+    range 50 5000
+    default 400
+
+config ZMK_PRGB_CAPS_FALLBACK_POS
+    int "Key position lit for caps lock when no key on any layer is bound to it"
+    range 0 255
+    default 24
+    help
+      While caps lock is on, the keys bound to caps lock on the active layers light up;
+      if there are none, the keys bound to it on any layer; if there are none either,
+      this key position (24: outer home-row key of the left half on the Lily58).
+
 config ZMK_PRGB_AUTO_OFF_IDLE
     bool "Turn the LEDs off while the keyboard (this half) is idle"
     default y

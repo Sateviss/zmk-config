@@ -80,15 +80,22 @@
 // ------------------------------------------------------------------------------------------------------------
 // RGB: UG = underglow zone (also the reactive accent colour), KEY = per-key zone.
 // BGLVL = reactive/ripple background (dim accent tint): 0 -> 5 -> 10 -> 15 -> 25% -> 0.
+// RGBMAP = layer key map on/off (keys show their binding type on this layer and Extra,
+// BT0-3 their profile state, OUTTG the endpoint; underglow tinted). PULSE = underglow
+// flashes on key presses on/off.
+// Key map colours on this layer: brightness/BGLVL yellow, saturation purple, hue keys
+// cycle the rainbow, effect green, speed cyan, toggles pink, BT/out blue (or status),
+// system red, layer keys orange, plain keys white. The unbound keys flash the new colour
+// when a hue, saturation, brightness or background level changes.
 // | BTCLR |OUTTG| BT0 |  BT1 |  BT2 |  BT3 |                   |      |       |       |      |       |STUDIO |
 // | RGBTGL|UGHU+| BRT+|KEYHU+| EFF+ | SPD+ |                   |      |       |       |      |       |       |
-// | SHIFT |UGHU-| BRT-|KEYHU-| EFF- | SPD- |                   |      |       |       |      |       |       |
+// | SHIFT |UGHU-| BRT-|KEYHU-| EFF- | SPD- |                   |RGBMAP| PULSE |       |      |       |       |
 // | LCTRL |UGSA+|UGSA-|KEYSA+|KEYSA-|BGLVL | KBPWR  |  |       |      |       |       |      |       |       |
 //                     |  MO1 | WIN  | ALT  | SPACE  |  | ENTER | MO2  |       |       |
             bindings = <
 &bt BT_CLR     &out OUT_TOG         &bt BT_SEL 0         &bt BT_SEL 1          &bt BT_SEL 2          &bt BT_SEL 3                         &none     &none    &none   &none &none &studio_unlock
 &prgb PRGB_TOG &prgb PRGB_UG_HUE_UP &prgb PRGB_BRI_UP    &prgb PRGB_KEY_HUE_UP &prgb PRGB_EFF_NEXT   &prgb PRGB_SPD_UP                    &none     &none    &none   &none &none &none
-&kp LSHFT      &prgb PRGB_UG_HUE_DN &prgb PRGB_BRI_DN    &prgb PRGB_KEY_HUE_DN &prgb PRGB_EFF_PREV   &prgb PRGB_SPD_DN                    &none     &none    &none   &none &none &none
+&kp LSHFT      &prgb PRGB_UG_HUE_DN &prgb PRGB_BRI_DN    &prgb PRGB_KEY_HUE_DN &prgb PRGB_EFF_PREV   &prgb PRGB_SPD_DN                    &prgb PRGB_MAP_TOG &prgb PRGB_PULSE_TOG &none &none &none &none
 &kp LCTRL      &prgb PRGB_UG_SAT_UP &prgb PRGB_UG_SAT_DN &prgb PRGB_KEY_SAT_UP &prgb PRGB_KEY_SAT_DN &prgb PRGB_BG_NEXT &ext_power EP_TOG &none &none     &none    &none   &none &none &none
                                                          &mo 1                 &kp LGUI              &kp LALT           &kp SPACE &kp RET &mo 2     &none    &none
             >;
