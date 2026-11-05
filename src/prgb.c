@@ -494,21 +494,19 @@ static uint32_t flash_level(uint32_t now, bool *animating) {
 
 /* Layer key map: keys by binding class (Bluetooth/output keys by status, hue keys round
  * the colour wheel, unbound keys flashing a colour that was just changed), underglow in
- * the layer's tint. Replaces the effect; with keys false only on the underglow (the
- * effect's keys stay). Returns the underglow's full colour. */
-static struct led_rgb render_map(uint32_t now, uint8_t val, uint32_t header, bool keys,
+ * the layer's tint. Replaces the effect; with unbound false the unbound keys keep what
+ * the effect drew. Returns the underglow's full colour. */
+static struct led_rgb render_map(uint32_t now, uint8_t val, uint32_t header, bool unbound,
                                  bool *animating) {
     struct led_rgb tint =
         ind_rgb(prgb_ind_layer_tint(PRGB_IND_HEADER_LAYER(header)), val, now, animating);
 
     fill(0, UG_LEDS, tint);
-    if (!keys) {
-        return tint;
-    }
 
     uint32_t flash = flash_level(now, animating);
     struct led_rgb flash_rgb =
         hsv_to_rgb(flash_color.h, flash_color.s, val * flash_pct / 100 * flash / 256);
+
     for (int k = 0; k < PRGB_KEY_LEDS; k++) {
         uint8_t cls = ind_info(k) & PRGB_IND_CLASS_MASK;
         struct prgb_ind_color c =
@@ -525,7 +523,9 @@ static struct led_rgb render_map(uint32_t now, uint8_t val, uint32_t header, boo
         }
 #endif
         if (cls == PRGB_IND_NONE && !c.pct) {
-            pixels[UG_LEDS + k] = flash_rgb;
+            if (unbound) {
+                pixels[UG_LEDS + k] = flash_rgb;
+            }
             continue;
         }
         pixels[UG_LEDS + k] = ind_rgb(c, val, now, animating);
@@ -596,10 +596,10 @@ static void render_handler(struct k_work *work) {
         memset(pixels, 0, sizeof(pixels));
 
         bool map = PRGB_IND_HEADER_SHOWN(header);
-        bool map_keys = map && prgb_ind_layer_map_keys(PRGB_IND_HEADER_LAYER(header));
+        bool map_unbound = map && prgb_ind_layer_map_unbound(PRGB_IND_HEADER_LAYER(header));
 
-        /* the effect runs unless the key map covers the keys too */
-        if (!map_keys) {
+        /* the effect runs unless the key map covers every key */
+        if (!map_unbound) {
             switch (state.effect) {
             case PRGB_EFF_BREATHE:
                 animating = render_breathe(now, val);
@@ -624,7 +624,7 @@ static void render_handler(struct k_work *work) {
             }
         }
         if (map) {
-            ug_full = render_map(now, val, header, map_keys, &animating);
+            ug_full = render_map(now, val, header, map_unbound, &animating);
         }
 
         render_mods_caps(now, val);
