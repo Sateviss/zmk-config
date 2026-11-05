@@ -83,6 +83,10 @@
 // RGBMAP = layer key map on/off (keys show their binding type on this layer and Extra,
 // BT0-3 their profile state, OUTTG the endpoint; underglow tinted). PULSE = underglow
 // flashes on key presses on/off.
+// Key map colours on this layer: brightness/BGLVL yellow, saturation purple, hue keys
+// cycle the rainbow, effect green, speed cyan, toggles pink, BT/out blue (or status),
+// system red, layer keys orange, plain keys white. The unbound keys flash the new colour
+// when a hue, saturation, brightness or background level changes.
 // | BTCLR |OUTTG| BT0 |  BT1 |  BT2 |  BT3 |                   |      |       |       |      |       |STUDIO |
 // | RGBTGL|UGHU+| BRT+|KEYHU+| EFF+ | SPD+ |                   |      |       |       |      |       |       |
 // | SHIFT |UGHU-| BRT-|KEYHU-| EFF- | SPD- |                   |RGBMAP| PULSE |       |      |       |       |

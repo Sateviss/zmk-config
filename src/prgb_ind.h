@@ -30,17 +30,26 @@ enum prgb_ind_class {
     PRGB_IND_KEY,      /* key presses, consumer keys, mod-taps, macros, anything else */
     PRGB_IND_LAYER,    /* &mo, &lt, &tog, &to, &sl */
     PRGB_IND_CONN,     /* &bt, &out */
-    PRGB_IND_LIGHT,    /* &prgb, &rgb_ug, &bl */
     PRGB_IND_SYSTEM,   /* &ext_power, &studio_unlock, &sys_reset, &bootloader, &soft_off */
+    /* Lighting keys, grouped by what they change (&prgb by command, see
+     * prgb_ind_prgb_class(); &rgb_ug and &bl are all PRGB_IND_LIGHT) */
+    PRGB_IND_LIGHT,        /* on/off, layer key map and underglow pulse toggles */
+    PRGB_IND_LIGHT_EFFECT, /* next/previous/set effect */
+    PRGB_IND_LIGHT_SPEED,  /* effect speed */
+    PRGB_IND_LIGHT_BRT,    /* brightness, reactive/ripple background level */
+    PRGB_IND_LIGHT_HUE,    /* underglow/key hue (and absolute colours) */
+    PRGB_IND_LIGHT_SAT,    /* underglow/key saturation */
     PRGB_IND_CLASSES,
 };
 
-#define PRGB_IND_CLASS_BITS 3 /* enough for PRGB_IND_CLASSES */
+#define PRGB_IND_CLASS_BITS 4 /* enough for PRGB_IND_CLASSES */
 
-/* Per-position info computed by prgb_ind_compute(): class in bits 0-2, plus flags. */
-#define PRGB_IND_CLASS_MASK 0x07
-#define PRGB_IND_MOD 0x08  /* bound to a modifier that is currently held */
-#define PRGB_IND_CAPS 0x10 /* the caps lock key, while caps lock is on */
+/* Per-position info computed by prgb_ind_compute(): class in bits 0-3, plus flags. */
+#define PRGB_IND_CLASS_MASK 0x0F
+#define PRGB_IND_MOD 0x10  /* bound to a modifier that is currently held */
+#define PRGB_IND_CAPS 0x20 /* the caps lock key, while caps lock is on */
+
+_Static_assert(PRGB_IND_CLASSES <= PRGB_IND_CLASS_MASK + 1, "class bits");
 
 /* Device names (DEVICE_DT_NAME = devicetree node name) of ZMK's behaviors. */
 struct prgb_ind_name_class {
@@ -64,9 +73,46 @@ static inline bool prgb_ind_is(const char *dev, const char *name) {
     return dev && strcmp(dev, name) == 0;
 }
 
-static inline uint8_t prgb_ind_classify(const char *dev) {
+/* The group of an &prgb binding, by its command (param1). */
+static inline uint8_t prgb_ind_prgb_class(uint32_t param1) {
+    switch (param1) {
+    case PRGB_EFF_NEXT_CMD:
+    case PRGB_EFF_PREV_CMD:
+    case PRGB_EFF_SET_CMD:
+        return PRGB_IND_LIGHT_EFFECT;
+    case PRGB_SPD_UP_CMD:
+    case PRGB_SPD_DN_CMD:
+    case PRGB_SPD_SET_CMD:
+        return PRGB_IND_LIGHT_SPEED;
+    case PRGB_BRI_UP_CMD:
+    case PRGB_BRI_DN_CMD:
+    case PRGB_BRT_SET_CMD:
+    case PRGB_BG_NEXT_CMD:
+    case PRGB_BG_SET_CMD:
+        return PRGB_IND_LIGHT_BRT;
+    case PRGB_UG_HUE_UP_CMD:
+    case PRGB_UG_HUE_DN_CMD:
+    case PRGB_KEY_HUE_UP_CMD:
+    case PRGB_KEY_HUE_DN_CMD:
+    case PRGB_UG_COLOR_CMD:
+    case PRGB_KEY_COLOR_CMD:
+        return PRGB_IND_LIGHT_HUE;
+    case PRGB_UG_SAT_UP_CMD:
+    case PRGB_UG_SAT_DN_CMD:
+    case PRGB_KEY_SAT_UP_CMD:
+    case PRGB_KEY_SAT_DN_CMD:
+        return PRGB_IND_LIGHT_SAT;
+    default: /* on/off/toggle, map, pulse */
+        return PRGB_IND_LIGHT;
+    }
+}
+
+static inline uint8_t prgb_ind_classify(const char *dev, uint32_t param1) {
     if (!dev || !dev[0]) {
         return PRGB_IND_NONE;
+    }
+    if (prgb_ind_is(dev, "prgb")) {
+        return prgb_ind_prgb_class(param1);
     }
     for (unsigned i = 0; i < sizeof(prgb_ind_names) / sizeof(prgb_ind_names[0]); i++) {
         if (strcmp(dev, prgb_ind_names[i].name) == 0) {
@@ -163,7 +209,7 @@ static inline void prgb_ind_compute(const struct prgb_ind_in *in, uint8_t *info)
         uint8_t v = 0;
 
         if (in->show_map && in->n_active && in->get(in->ctx, in->active[0], p, &b)) {
-            v = prgb_ind_classify(b.dev);
+            v = prgb_ind_classify(b.dev, b.param1);
         }
 
         if (in->mods || in->caps) {
@@ -206,12 +252,12 @@ static inline void prgb_ind_compute(const struct prgb_ind_in *in, uint8_t *info)
 
 /* ---- planes (relay format) ---------------------------------------------------------- */
 
-/* Planes 0-2: class bits 0-2; 3: modifier; 4: caps lock; 5: header. */
+/* Planes 0-3: class bits 0-3; 4: modifier; 5: caps lock; 6: header. */
 #define PRGB_IND_PLANE_CLASS 0
-#define PRGB_IND_PLANE_MOD 3
-#define PRGB_IND_PLANE_CAPS 4
-#define PRGB_IND_PLANE_HEADER 5
-#define PRGB_IND_PLANES 6
+#define PRGB_IND_PLANE_MOD (PRGB_IND_PLANE_CLASS + PRGB_IND_CLASS_BITS)
+#define PRGB_IND_PLANE_CAPS (PRGB_IND_PLANE_MOD + 1)
+#define PRGB_IND_PLANE_HEADER (PRGB_IND_PLANE_CAPS + 1)
+#define PRGB_IND_PLANES (PRGB_IND_PLANE_HEADER + 1)
 
 /* Header: bit 0 = key map shown, bits 8-15 = id of the layer shown (underglow tint). */
 #define PRGB_IND_HEADER(shown, layer) (((shown) ? 1U : 0U) | ((uint32_t)(layer) << 8))
@@ -294,13 +340,19 @@ struct prgb_ind_color {
 #define PRGB_IND_HUE_RED 0
 #define PRGB_IND_HUE_GREEN 120
 
+/* PRGB_IND_LIGHT_HUE keys run round the colour wheel (see prgb.c), starting at h. */
 static const struct prgb_ind_color prgb_ind_class_colors[PRGB_IND_CLASSES] = {
     [PRGB_IND_NONE] = {0, 0, 0, false},
-    [PRGB_IND_KEY] = {0, 0, 60, false},      /* white, a bit dimmer */
-    [PRGB_IND_LAYER] = {55, 100, 100, false}, /* yellow */
-    [PRGB_IND_CONN] = {275, 100, 100, false}, /* violet */
-    [PRGB_IND_LIGHT] = {330, 100, 100, false}, /* pink */
-    [PRGB_IND_SYSTEM] = {0, 100, 100, false}, /* red */
+    [PRGB_IND_KEY] = {0, 0, 60, false},                         /* white, a bit dimmer */
+    [PRGB_IND_LAYER] = {20, 100, 100, false},                   /* orange */
+    [PRGB_IND_CONN] = {PRGB_IND_HUE_BLUE, 100, 100, false},     /* blue (BT_CLR) */
+    [PRGB_IND_SYSTEM] = {PRGB_IND_HUE_RED, 100, 100, false},    /* red */
+    [PRGB_IND_LIGHT] = {330, 100, 100, false},                  /* pink: toggles */
+    [PRGB_IND_LIGHT_EFFECT] = {140, 100, 100, false},           /* green */
+    [PRGB_IND_LIGHT_SPEED] = {PRGB_IND_HUE_CYAN, 100, 100, false}, /* cyan */
+    [PRGB_IND_LIGHT_BRT] = {55, 100, 100, false},               /* yellow */
+    [PRGB_IND_LIGHT_HUE] = {0, 100, 100, false},                /* rainbow */
+    [PRGB_IND_LIGHT_SAT] = {285, 100, 100, false},              /* purple */
 };
 
 static const struct prgb_ind_color prgb_ind_mod_color = {PRGB_IND_HUE_GREEN, 100, 100, false};

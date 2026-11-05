@@ -31,10 +31,13 @@ CC = sys.argv[2] if len(sys.argv) > 2 else "cc"
 KEYMAP = REPO / "config/splitkb_aurora_lily58.keymap"
 
 N_POS = 58
-CLASS_LETTERS = {0: ".", 1: "K", 2: "L", 3: "C", 4: "G", 5: "S"}
-CLASS_NAMES = {0: "none (dark)", 1: "key (white)", 2: "layer (yellow)", 3: "bt/out (violet)",
-               4: "lighting (pink)", 5: "system (red)"}
-MOD, CAPS = 0x08, 0x10
+CLASS_LETTERS = {0: ".", 1: "K", 2: "L", 3: "C", 4: "S", 5: "T", 6: "E", 7: "V", 8: "B",
+                 9: "H", 10: "A"}
+CLASS_NAMES = {0: "none (dark, flashes)", 1: "key (white)", 2: "layer (orange)",
+               3: "bt/out (blue)", 4: "system (red)", 5: "light toggle (pink)",
+               6: "effect (green)", 7: "speed (cyan)", 8: "brightness (yellow)",
+               9: "hue (rainbow)", 10: "saturation (purple)"}
+CLASS_MASK, MOD, CAPS = 0x0F, 0x10, 0x20
 
 # Lily58 key positions per keyboard row, (left part, right part)
 ROWS = [
@@ -337,8 +340,8 @@ def main():
             failures.append(line)
     check(out.returncode == 0 and "RANDOM ok" in lines, "harness reported errors")
 
-    print("Layer key map: class per key (. none/dark, K key/white, L layer/yellow, "
-          "C bt/out/violet, G lighting/pink, S system/red)")
+    print("Layer key map: class per key (" + ", ".join(
+        f"{CLASS_LETTERS[c]} {CLASS_NAMES[c]}" for c in CLASS_LETTERS) + ")")
     for i, (node, display, b) in enumerate(layers):
         sc = scenarios[f"map {i}"]
         both = {**sc["left"], **sc["right"]}
@@ -347,14 +350,14 @@ def main():
         print()
         if not shown:
             grid({p: "~" for p in both}, f"{display} (layer {i}): default layer, no map - the effect runs")
-            check(all((v & 7) == 0 for _, v in both.values()), f"{display}: classes while hidden")
+            check(all((v & CLASS_MASK) == 0 for _, v in both.values()), f"{display}: classes while hidden")
             continue
-        grid({p: CLASS_LETTERS[v & 7] for p, (_, v) in both.items()},
+        grid({p: CLASS_LETTERS[v & CLASS_MASK] for p, (_, v) in both.items()},
              f"{display} (layer {i}): map shown, underglow tint of layer {sc['hdr'][0] >> 8}")
         for half in ("left", "right"):
             per = {}
             for p, (led, v) in sorted(sc[half].items(), key=lambda kv: kv[1][0]):
-                per.setdefault(v & 7, []).append(led)
+                per.setdefault(v & CLASS_MASK, []).append(led)
             desc = "; ".join(f"{CLASS_NAMES[c]}: LEDs {' '.join(map(str, per[c]))}" for c in sorted(per))
             print(f"  {half:5}: {desc}")
         # the map must agree with the bindings themselves
@@ -362,9 +365,9 @@ def main():
             dev = b[p][0]
             want = 0 if dev in ("transparent", "none") else None
             if want is not None:
-                check((v & 7) == want, f"{display} pos {p} ({b[p][3]}): class {v & 7}")
+                check((v & CLASS_MASK) == want, f"{display} pos {p} ({b[p][3]}): class {v & CLASS_MASK}")
             else:
-                check((v & 7) != 0, f"{display} pos {p} ({b[p][3]}): dark")
+                check((v & CLASS_MASK) != 0, f"{display} pos {p} ({b[p][3]}): dark")
 
     print("\nHeld modifiers (all eight held at once): keys lit green, by layer")
     for i, (node, display, b) in enumerate(layers):
@@ -397,7 +400,7 @@ def main():
     sc = scenarios["all 1"]
     both = {**sc["left"], **sc["right"]}
     print("\nControl layer + left shift held + caps lock (overlay letter: m mod, c caps):")
-    grid({p: ("c" if v & CAPS else "m" if v & MOD else CLASS_LETTERS[v & 7]) for p, (_, v) in both.items()}, "")
+    grid({p: ("c" if v & CAPS else "m" if v & MOD else CLASS_LETTERS[v & CLASS_MASK]) for p, (_, v) in both.items()}, "")
 
     print(f"\nBluetooth/output keys on layer {conn_layer} (position: hue,sat,% brightness,pulsing):")
     for line in lines:

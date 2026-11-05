@@ -117,6 +117,12 @@ BUILD_ASSERT(PRGB_KEY_LEDS <= 32, "Key state is kept in 32-bit masks");
 #define PULSE_REST_PCT 50
 /* Bluetooth "advertising" keys breathe between 25% and 100% once per this many ms */
 #define IND_BLINK_MS 1200
+/* Hue keys in the layer key map run once round the colour wheel per this many ms */
+#define IND_HUE_CYCLE_MS 3000
+/* Changing a colour, saturation, brightness or background level while the key map is
+ * shown flashes the keys bound to nothing in the result for this long */
+#define IND_FLASH_MS 900
+#define IND_FLASH_HOLD_MS 300 /* at full before it starts fading */
 
 #define STATE_VERSION 3
 
@@ -196,6 +202,12 @@ static uint32_t heat_ms;
 
 /* Underglow pulse: when this half's last key press was. */
 static uint32_t pulse_ms;
+
+/* Key map flash: when a colour setting last changed (on this half) and what to show. */
+static bool flash_on;
+static uint32_t flash_ms;
+static struct prgb_hs flash_color;
+static uint8_t flash_pct; /* % of the brightness */
 
 /*
  * This half's indicator planes (prgb_ind.h): bit n is this half's n-th key position in
@@ -461,11 +473,32 @@ static struct led_rgb ind_rgb(struct prgb_ind_color c, uint8_t val, uint32_t now
 /* The info (prgb_ind.h) of key LED k. */
 static uint8_t ind_info(int k) { return prgb_ind_unpack(ind_planes, led_bit[k]); }
 
-/* Layer key map: keys by binding class (Bluetooth/output keys by status), underglow in
+/* Flash level (0-256) of the keys bound to nothing: full for IND_FLASH_HOLD_MS after a
+ * colour setting changed, then easing out by IND_FLASH_MS. */
+static uint32_t flash_level(uint32_t now, bool *animating) {
+    uint32_t age = now - flash_ms;
+
+    if (!flash_on || age >= IND_FLASH_MS) {
+        flash_on = false;
+        return 0;
+    }
+    *animating = true;
+    if (age < IND_FLASH_HOLD_MS) {
+        return 256;
+    }
+    uint32_t r = 256 - (age - IND_FLASH_HOLD_MS) * 256 / (IND_FLASH_MS - IND_FLASH_HOLD_MS);
+    return r * r / 256; /* ease out */
+}
+
+/* Layer key map: keys by binding class (Bluetooth/output keys by status, hue keys round
+ * the colour wheel, unbound keys flashing a colour that was just changed), underglow in
  * the layer's tint. Replaces the effect. Returns the underglow's full colour. */
 static struct led_rgb render_map(uint32_t now, uint8_t val, uint32_t header, bool *animating) {
     struct led_rgb tint =
         ind_rgb(prgb_ind_layer_tint(PRGB_IND_HEADER_LAYER(header)), val, now, animating);
+    uint32_t flash = flash_level(now, animating);
+    struct led_rgb flash_rgb =
+        hsv_to_rgb(flash_color.h, flash_color.s, val * flash_pct / 100 * flash / 256);
 
     fill(0, UG_LEDS, tint);
     for (int k = 0; k < PRGB_KEY_LEDS; k++) {
@@ -473,11 +506,20 @@ static struct led_rgb render_map(uint32_t now, uint8_t val, uint32_t header, boo
         struct prgb_ind_color c =
             prgb_ind_class_colors[cls < PRGB_IND_CLASSES ? cls : PRGB_IND_KEY];
 
+        if (cls == PRGB_IND_LIGHT_HUE) {
+            c.h = (c.h + (now % IND_HUE_CYCLE_MS) * PRGB_HUE_MAX / IND_HUE_CYCLE_MS) %
+                  PRGB_HUE_MAX;
+            *animating = true;
+        }
 #if IND_CENTRAL
         if (conn_colors[k].pct) {
             c = conn_colors[k];
         }
 #endif
+        if (cls == PRGB_IND_NONE && !c.pct) {
+            pixels[UG_LEDS + k] = flash_rgb;
+            continue;
+        }
         pixels[UG_LEDS + k] = ind_rgb(c, val, now, animating);
     }
     return tint;
@@ -731,6 +773,16 @@ static int changed(void) {
     return save_state();
 }
 
+/* Show a colour that was just set on the keys bound to nothing in the key map (if it is
+ * shown: otherwise the effect itself shows the change). Runs on both halves, as the
+ * setting does. */
+static void flash(struct prgb_hs color, uint8_t pct) {
+    flash_color = color;
+    flash_pct = pct;
+    flash_ms = k_uptime_get_32();
+    flash_on = true;
+}
+
 bool prgb_is_on(void) { return state.on; }
 
 int prgb_set_on(bool on) {
@@ -761,6 +813,7 @@ int prgb_set_brt(int brt) {
         return -EINVAL;
     }
     state.brt = brt;
+    flash(state.key, 100);
     return changed();
 }
 
@@ -794,6 +847,7 @@ int prgb_set_color(enum prgb_zone zone, struct prgb_hs color) {
     } else {
         state.key = color;
     }
+    flash(color, 100);
     return changed();
 }
 
@@ -811,6 +865,9 @@ int prgb_set_bg(int bg) {
         return -EINVAL;
     }
     state.bg = bg;
+    /* The background is a dim tint of the accent (underglow) colour: show it at its level,
+     * but visibly (a 0% background flashes the accent faintly) */
+    flash(state.ug, MAX(bg, 5));
     return changed();
 }
 
