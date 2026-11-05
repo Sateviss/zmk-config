@@ -53,6 +53,22 @@
 #define PRGB_BG_NEXT_CMD 22 /* relative: next level of 0, 5, 10, 15, 25 %, then back to 0 */
 #define PRGB_BG_SET_CMD 23  /* absolute, param2: background 0-100 */
 
+/*
+ * Indicators (added after the commands above so their numbers stay the same).
+ * Layer key map: while a layer above the default one is active, keys light by what is
+ * bound to them on that layer (and the Bluetooth/output keys by connection state), the
+ * underglow takes the layer's tint; back on the default layer the effect resumes.
+ * Underglow pulse: the underglow rests at half its level and flashes up to full on each
+ * key press of that half, in every effect.
+ */
+#define PRGB_MAP_TOG_CMD 24   /* relative: layer key map on/off */
+#define PRGB_PULSE_TOG_CMD 25 /* relative: underglow pulse on/off */
+#define PRGB_MAP_SET_CMD 26   /* absolute, param2: 0 off, 1 on */
+#define PRGB_PULSE_SET_CMD 27 /* absolute, param2: 0 off, 1 on */
+/* Internal: the central relays the indicators to the peripheral with this command in
+ * the low byte of param1 (plane number above it, see src/prgb_ind.h). Not for keymaps. */
+#define PRGB_RELAY_CMD 28
+
 #define PRGB_HS(h, s) (((h) << 8) | (s))
 
 #define PRGB_TOG PRGB_TOG_CMD 0
@@ -73,8 +89,12 @@
 #define PRGB_KEY_SAT_UP PRGB_KEY_SAT_UP_CMD 0
 #define PRGB_KEY_SAT_DN PRGB_KEY_SAT_DN_CMD 0
 #define PRGB_BG_NEXT PRGB_BG_NEXT_CMD 0
+#define PRGB_MAP_TOG PRGB_MAP_TOG_CMD 0
+#define PRGB_PULSE_TOG PRGB_PULSE_TOG_CMD 0
 
 #define PRGB_EFF(e) PRGB_EFF_SET_CMD e
 #define PRGB_UG_COLOR(h, s) PRGB_UG_COLOR_CMD PRGB_HS(h, s)
 #define PRGB_KEY_COLOR(h, s) PRGB_KEY_COLOR_CMD PRGB_HS(h, s)
 #define PRGB_BG(pct) PRGB_BG_SET_CMD pct
+#define PRGB_MAP(on) PRGB_MAP_SET_CMD on
+#define PRGB_PULSE(on) PRGB_PULSE_SET_CMD on

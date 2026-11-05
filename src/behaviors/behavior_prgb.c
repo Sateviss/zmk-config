@@ -50,6 +50,8 @@ static const struct behavior_parameter_value_metadata no_arg_values[] = {
     CMD("Key Saturation Up", PRGB_KEY_SAT_UP_CMD),
     CMD("Key Saturation Down", PRGB_KEY_SAT_DN_CMD),
     CMD("Next Background Level", PRGB_BG_NEXT_CMD),
+    CMD("Toggle Layer Key Map", PRGB_MAP_TOG_CMD),
+    CMD("Toggle Underglow Pulse", PRGB_PULSE_TOG_CMD),
 };
 
 static const struct behavior_parameter_value_metadata effect_cmd_values[] = {
@@ -144,6 +146,14 @@ static int prgb_convert_params(struct zmk_behavior_binding *binding,
         binding->param2 = prgb_calc_bg_next();
         binding->param1 = PRGB_BG_SET_CMD;
         break;
+    case PRGB_MAP_TOG_CMD:
+        binding->param2 = !prgb_map_enabled();
+        binding->param1 = PRGB_MAP_SET_CMD;
+        break;
+    case PRGB_PULSE_TOG_CMD:
+        binding->param2 = !prgb_pulse_enabled();
+        binding->param1 = PRGB_PULSE_SET_CMD;
+        break;
     default:
         return 0;
     }
@@ -158,6 +168,11 @@ static int set_color(enum prgb_zone zone, uint32_t hs) {
 
 static int prgb_binding_pressed(struct zmk_behavior_binding *binding,
                                 struct zmk_behavior_binding_event event) {
+    /* Indicator relay from the central: plane number in the upper bits of param1. */
+    if ((binding->param1 & 0xFF) == PRGB_RELAY_CMD) {
+        return prgb_relay_receive(binding->param1, binding->param2);
+    }
+
     switch (binding->param1) {
     case PRGB_TOG_CMD:
         return prgb_set_on(!prgb_is_on());
@@ -207,6 +222,14 @@ static int prgb_binding_pressed(struct zmk_behavior_binding *binding,
         return set_color(PRGB_ZONE_KEYS, binding->param2);
     case PRGB_BG_SET_CMD:
         return prgb_set_bg(binding->param2);
+    case PRGB_MAP_TOG_CMD:
+        return prgb_set_map(!prgb_map_enabled());
+    case PRGB_PULSE_TOG_CMD:
+        return prgb_set_pulse(!prgb_pulse_enabled());
+    case PRGB_MAP_SET_CMD:
+        return prgb_set_map(binding->param2 != 0);
+    case PRGB_PULSE_SET_CMD:
+        return prgb_set_pulse(binding->param2 != 0);
     }
 
     return -ENOTSUP;
