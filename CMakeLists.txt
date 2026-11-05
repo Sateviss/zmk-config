@@ -5,3 +5,7 @@ zephyr_include_directories(include)
 # it still links with CONFIG_ZMK_PRGB=n (the behavior then does nothing).
 target_sources_ifdef(CONFIG_DT_HAS_ZMK_BEHAVIOR_PRGB_ENABLED app PRIVATE src/behaviors/behavior_prgb.c)
 target_sources_ifdef(CONFIG_ZMK_PRGB app PRIVATE src/prgb.c)
+
+# Custom OLED status screen (see src/display/Kconfig).
+target_sources_ifdef(CONFIG_ZMK_OLED_STATUS app PRIVATE src/display/status_screen.c
+                     src/display/oled_layout.c)

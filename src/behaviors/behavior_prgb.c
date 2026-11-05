@@ -11,6 +11,8 @@
 
 #define DT_DRV_COMPAT zmk_behavior_prgb
 
+#include <stdio.h>
+
 #include <zephyr/device.h>
 #include <zephyr/logging/log.h>
 #include <drivers/behavior.h>
@@ -84,6 +86,17 @@ static const struct behavior_parameter_metadata metadata = {
     .sets_len = ARRAY_SIZE(sets),
     .sets = sets,
 };
+
+/* Effect names for the OLED status screen: the same list ZMK Studio shows. */
+const char *prgb_effect_name(uint8_t effect, char *buf, size_t len) {
+    for (size_t i = 0; i < ARRAY_SIZE(effect_values); i++) {
+        if (effect_values[i].value == effect) {
+            return effect_values[i].display_name;
+        }
+    }
+    snprintf(buf, len, "FX %u", effect);
+    return buf;
+}
 
 #endif /* IS_ENABLED(CONFIG_ZMK_BEHAVIOR_METADATA) */
 

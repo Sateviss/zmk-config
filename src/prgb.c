@@ -22,6 +22,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <stdio.h>
 #include <string.h>
 
 #include <zephyr/device.h>
@@ -45,6 +46,7 @@
 #include "prgb.h"
 #include "prgb_ind.h"
 #include "aurora_lily58_leds.h"
+#include "events/prgb_state_changed.h"
 
 /* The half that has the keymap, layers, HID and BLE state (or a unibody board). */
 #define IND_CENTRAL (!IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL))
@@ -640,6 +642,13 @@ static void kick(void) {
     k_work_reschedule_for_queue(zmk_workqueue_lowprio_work_q(), &render_work, K_NO_WAIT);
 }
 
+ZMK_EVENT_IMPL(zmk_prgb_state_changed);
+
+/* Tell listeners (the OLED status screen) about a new state. */
+static void notify(void) {
+    raise_zmk_prgb_state_changed((struct zmk_prgb_state_changed){.status = prgb_get_status()});
+}
+
 /* ---- persistence ------------------------------------------------------------------- */
 
 static int save_state(void) {
@@ -757,6 +766,7 @@ static int prgb_settings_set(const char *name, size_t len, settings_read_cb read
         anim_start_ms = k_uptime_get_32();
         ind_update();
         kick();
+        notify();
         return 0;
     }
 
@@ -770,6 +780,7 @@ SETTINGS_STATIC_HANDLER_DEFINE(prgb, "prgb", NULL, prgb_settings_set, NULL, NULL
 
 static int changed(void) {
     kick();
+    notify();
     return save_state();
 }
 
@@ -784,6 +795,17 @@ static void flash(struct prgb_hs color, uint8_t pct) {
 }
 
 bool prgb_is_on(void) { return state.on; }
+
+struct prgb_status prgb_get_status(void) {
+    return (struct prgb_status){
+        .on = state.on, .effect = state.effect, .brt = state.brt, .spd = state.spd};
+}
+
+/* Used when the &prgb behavior (which has the effect names) is not built. */
+__weak const char *prgb_effect_name(uint8_t effect, char *buf, size_t len) {
+    snprintf(buf, len, "FX %u", effect);
+    return buf;
+}
 
 int prgb_set_on(bool on) {
     state.on = on;
