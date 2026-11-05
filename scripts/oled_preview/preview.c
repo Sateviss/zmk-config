@@ -67,24 +67,25 @@ struct scenario {
     struct oled_conn conn;
     int mv;
     bool charging;
+    int est; /* minutes left, OLED_EST_PENDING */
     const char *layer;
     struct oled_lighting light;
 };
 
 static const struct scenario scenarios[] = {
-    {"left-ble", true, {OLED_CONN_BLE, true, true, 0}, 3921, false, "Base",
+    {"left-ble", true, {OLED_CONN_BLE, true, true, 0}, 3921, false, 545, "Base",
      {true, true, 80, 1, "Breathe"}},
-    {"left-usb", true, {OLED_CONN_USB, true, true, 0}, 4153, true, "Control",
+    {"left-usb", true, {OLED_CONN_USB, true, true, 0}, 4153, true, OLED_EST_NONE, "Control",
      {true, true, 100, 2, "Reactive"}},
-    {"left-open", true, {OLED_CONN_BLE, false, false, 2}, 3688, false, "Extra",
+    {"left-open", true, {OLED_CONN_BLE, false, false, 2}, 3688, false, OLED_EST_PENDING, "Extra",
      {true, true, 40, 3, "Ripple"}},
-    {"right-on", false, {OLED_CONN_SPLIT, true, false, 0}, 4196, false, NULL,
+    {"right-on", false, {OLED_CONN_SPLIT, true, false, 0}, 4196, false, 2950, NULL,
      {true, true, 100, 4, "Rainbow"}},
-    {"right-off", false, {OLED_CONN_SPLIT, false, false, 0}, 3512, false, NULL,
+    {"right-off", false, {OLED_CONN_SPLIT, false, false, 0}, 3512, false, 38, NULL,
      {true, false, 50, 0, "Static"}},
-    {"right-long", false, {OLED_CONN_SPLIT, true, false, 0}, 4012, false, NULL,
+    {"right-long", false, {OLED_CONN_SPLIT, true, false, 0}, 4012, false, OLED_EST_PENDING, NULL,
      {true, true, 70, 5, "Heatmap"}},
-    {"left-static", true, {OLED_CONN_BLE, true, true, 4}, 3800, false, "Base",
+    {"left-static", true, {OLED_CONN_BLE, true, true, 4}, 3800, false, 1290, "Base",
      {true, true, 5, 0, "Static"}},
 };
 
@@ -118,7 +119,7 @@ int main(int argc, char **argv) {
             lv_obj_delete(old);
         }
         oled_layout_set_conn(&s->conn);
-        oled_layout_set_battery(s->mv, s->charging);
+        oled_layout_set_battery(s->mv, s->charging, s->est);
         if (s->central) {
             oled_layout_set_layer(s->layer, 0);
         }

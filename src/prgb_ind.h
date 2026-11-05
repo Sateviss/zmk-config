@@ -361,6 +361,13 @@ static const struct prgb_ind_color prgb_ind_class_colors[PRGB_IND_CLASSES] = {
 static const struct prgb_ind_color prgb_ind_mod_color = {PRGB_IND_HUE_GREEN, 100, 100, false};
 static const struct prgb_ind_color prgb_ind_caps_color = {PRGB_IND_HUE_CYAN, 100, 100, false};
 
+/* Whether a layer's key map leaves its unbound (&none) keys dark, flashing a colour
+ * that was just changed. Otherwise they keep the effect, as on the default layer, and
+ * only the bound keys show their class colours. */
+static inline bool prgb_ind_layer_map_unbound(uint8_t layer) {
+    return layer != 2; /* Extra: unbound keys keep the effect */
+}
+
 /* Underglow tint while a layer's key map is shown. */
 static inline struct prgb_ind_color prgb_ind_layer_tint(uint8_t layer) {
     switch (layer) {

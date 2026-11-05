@@ -16,7 +16,8 @@ config ZMK_OLED_STATUS
     help
       Implements zmk_display_status_screen() for the 128x32 SSD1306 panels, shown
       rotated to portrait (32x128): connection (central: output / BLE profile;
-      peripheral: link to the central), battery icon and voltage, active layer
+      peripheral: link to the central), battery icon and voltage, battery time left
+      while on battery (from the drain over the last two hours), active layer
       (central), per-key RGB effect and brightness. Needs
       CONFIG_ZMK_DISPLAY_STATUS_SCREEN_CUSTOM=y.
 

@@ -47,8 +47,13 @@ void oled_layout_create(lv_obj_t *screen, bool central);
 
 void oled_layout_set_conn(const struct oled_conn *conn);
 
+/* est_minutes: battery time left, OLED_EST_PENDING (-1) while not known yet, or
+ * OLED_EST_NONE to show nothing; not shown while charging. */
+#define OLED_EST_PENDING (-1)
+#define OLED_EST_NONE (-2)
+
 /* mv < 0: no reading yet. charging: USB power present (central only). */
-void oled_layout_set_battery(int mv, bool charging);
+void oled_layout_set_battery(int mv, bool charging, int est_minutes);
 
 /* name may be NULL or empty: the layer number is shown instead. */
 void oled_layout_set_layer(const char *name, uint8_t index);
