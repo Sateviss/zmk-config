@@ -47,6 +47,12 @@ config ZMK_OLED_STATUS_BATTERY_INTERVAL
 
 endif # ZMK_OLED_STATUS
 
-# LVGL heap: the stock screen gets 4 KB (ZMK sets that only for the built-in screen).
+# LVGL heap. ZMK gives its built-in screen 4 KB, but this screen has more widgets and
+# local styles. With 4 KB, lv_malloc fails while the widgets are being created and the
+# firmware crashes at boot (dead keys, OLEDs showing garbage). Measured on the host with
+# this LVGL and Zephyr's sys_heap: about 1.6 KB after lvgl_init, 2.2 KB after the mono
+# theme, and a peak of 4.6 KB (central) or 4.3 KB (peripheral) of live allocations while
+# rendering, plus about 4 bytes of sys_heap header per block. 8 KB leaves headroom for
+# fragmentation and longer label texts, and the nRF52840 has plenty of RAM.
 config LV_Z_MEM_POOL_SIZE
-    default 4096 if ZMK_OLED_STATUS
+    default 8192 if ZMK_OLED_STATUS
